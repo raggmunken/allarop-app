@@ -1,0 +1,2098 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Allarop - Sveriges nätauktioner på ett ställe</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23111110'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23f5f4f1'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:ital,wght@0,400..800;1,400..600&display=swap" rel="stylesheet" />
+<!-- Bilderna hotlänkas från auktionshusens egna CDN (ingen egen spegling serveras). Öppna
+     anslutningen i förväg till de vanligaste värdarna så första bilderna laddar snabbare. -->
+<link rel="preconnect" href="https://images.auctionet.com" />
+<link rel="preconnect" href="https://media.se.klaravik.com" />
+<link rel="preconnect" href="https://cdn.blinto.se" />
+<link rel="preconnect" href="https://d2q01ftr6ua4w.cloudfront.net" />
+<link rel="dns-prefetch" href="https://tovek2-objectstorage.b-cdn.net" />
+<link rel="dns-prefetch" href="https://media.assetfront.com" />
+<link rel="dns-prefetch" href="https://img.imageboss.me" />
+<link rel="dns-prefetch" href="https://media.budi.se" />
+<link rel="dns-prefetch" href="https://imagehandler.pantbanken.se" />
+<link rel="dns-prefetch" href="https://pic09.auction2000.online" />
+<link rel="dns-prefetch" href="https://www.netauktion.se" />
+<style>
+  :root{
+    --bg:#f4f3ef;            /* mjuk ljus neutral */
+    --bg-2:#eceae3;
+    --surface:#ffffff;
+    --ink:#111110;
+    --ink-2:#3b3a36;
+    --ink-soft:#76746c;
+    --ink-faint:#8f8a7e;    /* svag text - mörkad för läsbarhet (WCAG) */
+    --line:#e6e3da;
+    --line-2:#dcd8cd;
+    --accent:#2f43f5;        /* stark, pålitlig kobolt */
+    --accent-ink:#1b2bc4;
+    --accent-soft:#eceefe;
+    --green:#0c8a5a;
+    --r:18px;                /* kort-radie */
+    --r-sm:12px;
+    --pill:100px;
+    --sh-sm:0 1px 2px rgba(17,17,16,.04);
+    --sh:0 14px 34px -16px rgba(17,17,16,.22);
+    --sh-lg:0 30px 60px -24px rgba(17,17,16,.3);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  [hidden]{display:none!important}  /* hidden-attributet SKA alltid dölja - author-CSS får ej överköra det (t.ex. .cmpwrap{display:flex}) */
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Schibsted Grotesk",system-ui,sans-serif;
+    font-size:16px; line-height:1.5; letter-spacing:-.011em;
+    -webkit-font-smoothing:antialiased;
+    font-variant-numeric:tabular-nums;
+  }
+  a{color:inherit;text-decoration:none}
+  .num{font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 clamp(16px,4vw,40px)}
+
+  /* ---------- nav ---------- */
+  nav{position:sticky;top:0;z-index:40;background:rgba(244,243,239,.82);backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:19px;letter-spacing:-.03em}
+  .logo .mark{width:24px;height:24px;border-radius:7px;background:var(--ink);display:grid;place-items:center}
+  .logo .mark::after{content:"";width:9px;height:9px;border-radius:50%;background:var(--bg)}
+  .nav-meta{display:flex;align-items:center;gap:18px;font-size:13.5px;color:var(--ink-soft)}
+  .navlink{font-weight:600;color:var(--ink-2);padding:7px 13px;border-radius:var(--pill);border:1px solid var(--line-2);background:var(--surface);transition:all .15s;white-space:nowrap}
+  .navlink:hover{border-color:var(--accent);color:var(--accent)}
+  .live{display:inline-flex;align-items:center;gap:7px;font-weight:500;color:var(--ink-2)}
+  .live .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(12,138,90,.5);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(12,138,90,.45)}70%{box-shadow:0 0 0 7px rgba(12,138,90,0)}100%{box-shadow:0 0 0 0 rgba(12,138,90,0)}}
+
+  /* ---------- hero / search ---------- */
+  .hero{padding:clamp(40px,7vw,84px) 0 clamp(22px,3vw,34px)}
+  .hero h1{
+    font-size:clamp(38px,6.4vw,74px); line-height:1.0; font-weight:800; letter-spacing:-.04em;
+    max-width:16ch;
+  }
+  .hero h1 .g{color:var(--accent)}
+  .hero .sub{margin-top:20px;font-size:clamp(16px,1.8vw,20px);color:var(--ink-soft);max-width:46ch}
+  form.search{
+    margin-top:32px; display:flex; gap:8px; background:var(--surface);
+    border:1px solid var(--line-2); border-radius:var(--pill); padding:7px 7px 7px 8px;
+    box-shadow:var(--sh); max-width:680px; transition:box-shadow .2s,border-color .2s;
+  }
+  form.search:focus-within{border-color:var(--ink);box-shadow:var(--sh-lg)}
+  form.search .ico{display:grid;place-items:center;width:40px;color:var(--ink-faint);flex:0 0 auto}
+  form.search input{
+    flex:1;border:0;background:transparent;outline:none;font:inherit;font-size:17px;color:var(--ink);padding:12px 2px;
+  }
+  form.search input::placeholder{color:var(--ink-faint)}
+  form.search button{
+    border:0;background:var(--ink);color:#fff;border-radius:var(--pill);padding:0 26px;height:48px;
+    font:inherit;font-weight:600;font-size:15px;cursor:pointer;transition:transform .12s,background .15s;flex:0 0 auto;
+  }
+  form.search button:hover{background:var(--accent)}
+  form.search button:active{transform:scale(.97)}
+
+  /* ---------- controls ---------- */
+  .controls{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding:26px 0 6px}
+  /* Källfilter: fler-vals-dropdown (skalar till 20+ hus, läsbara antal). */
+  .srcdd{position:relative}
+  .srcbtn{display:inline-flex;align-items:center;gap:9px;font:inherit;font-size:14px;font-weight:500;color:var(--ink);
+    border:1px solid var(--line-2);background:var(--surface);padding:9px 15px;border-radius:var(--pill);cursor:pointer;box-shadow:var(--sh-sm);transition:all .15s}
+  .srcbtn:hover{border-color:var(--ink)}
+  .srcdd.open .srcbtn{border-color:var(--ink)}
+  .srcbtn.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .srcbtn .chev{color:var(--ink-soft);transition:transform .18s}
+  .srcbtn.active .chev{color:rgba(255,255,255,.7)}
+  .srcdd.open .srcbtn .chev{transform:rotate(180deg)}
+  .srcbtn .srcbadge{font-size:12px;font-weight:700;background:var(--accent);color:#fff;min-width:18px;height:18px;
+    padding:0 5px;border-radius:9px;display:inline-grid;place-items:center;font-variant-numeric:tabular-nums}
+  .srcmenu{position:absolute;top:calc(100% + 7px);left:0;width:288px;max-width:90vw;background:var(--surface);
+    border:1px solid var(--line-2);border-radius:14px;box-shadow:var(--sh-lg);padding:7px;z-index:55;
+    opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .15s,transform .15s}
+  .srcdd.open .srcmenu{opacity:1;transform:none;pointer-events:auto}
+  .srcsearch{padding:3px 4px 7px}
+  .srcsearch input{width:100%;box-sizing:border-box;font:inherit;font-size:14px;color:var(--ink);
+    border:1px solid var(--line-2);background:var(--bg-2);border-radius:9px;padding:8px 11px;outline:none;transition:border-color .15s}
+  .srcsearch input:focus{border-color:var(--ink)}
+  .srchead{display:flex;align-items:center;justify-content:space-between;padding:2px 8px 7px;margin-bottom:3px;border-bottom:1px solid var(--line)}
+  .srchead .lbl{font-size:12px;font-weight:600;color:var(--ink-soft);letter-spacing:.02em;text-transform:uppercase}
+  .srcclear{font:inherit;font-size:13px;font-weight:600;color:var(--accent-ink);background:none;border:0;cursor:pointer;padding:3px 6px;border-radius:7px}
+  .srcclear:hover{background:var(--accent-soft)} .srcclear[hidden]{display:none}
+  .srclist{max-height:316px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+  .srcopt{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font:inherit;font-size:14px;font-weight:500;
+    color:var(--ink-2);background:none;border:0;padding:9px 10px;border-radius:9px;cursor:pointer;transition:background .12s}
+  .srcopt:hover{background:#f1f0ea}
+  .srcopt.on{background:var(--accent-soft);color:var(--accent-ink)}
+  .srcopt .box{flex:0 0 auto;width:17px;height:17px;border-radius:5px;border:1.5px solid var(--ink-faint);
+    display:grid;place-items:center;font-size:11px;line-height:1;color:#fff;transition:all .12s}
+  .srcopt.on .box{background:var(--accent);border-color:var(--accent)}
+  .srcopt.on .box::after{content:"✓"}
+  .srcopt .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .srcopt .cnt{font-size:13px;font-weight:600;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+  .catmain .ic{width:20px;text-align:center;font-size:15px}
+  .catmain .cx{width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:6px;font-weight:700;color:var(--ink-faint);flex:none}
+  .catmain .cx:hover{background:var(--ink-soft,rgba(0,0,0,.06));color:var(--ink)}
+  .catsubs{display:flex;flex-direction:column;gap:1px;margin:1px 0 3px 0}
+  .catsub{padding-left:38px;font-weight:500;font-size:13.5px}
+  #catMenu{min-width:260px}
+  .srcopt.on .cnt{color:var(--accent-ink);opacity:.7}
+  .srcempty{padding:12px 10px;font-size:13px;color:var(--ink-soft);text-align:center}
+  .sortsel{margin-left:auto;display:inline-flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-soft)}
+  .sortdd{position:relative}
+  .sortbtn{display:inline-flex;align-items:center;gap:10px;font:inherit;font-size:14px;font-weight:500;color:var(--ink);
+    border:1px solid var(--line-2);background:var(--surface);padding:9px 14px;border-radius:var(--pill);cursor:pointer;box-shadow:var(--sh-sm);transition:all .15s}
+  .sortbtn:hover{border-color:var(--ink)}
+  .sortbtn .chev{color:var(--ink-soft);transition:transform .18s}
+  .sortdd.open .sortbtn{border-color:var(--ink)}
+  .sortdd.open .sortbtn .chev{transform:rotate(180deg)}
+  .sortmenu{position:absolute;top:calc(100% + 7px);right:0;min-width:186px;background:var(--surface);
+    border:1px solid var(--line-2);border-radius:14px;box-shadow:var(--sh-lg);padding:6px;z-index:50;
+    opacity:0;transform:translateY(-6px);pointer-events:none;transition:opacity .15s,transform .15s}
+  .sortdd.open .sortmenu{opacity:1;transform:none;pointer-events:auto}
+  .sortopt{display:block;width:100%;text-align:left;font:inherit;font-size:14px;font-weight:500;color:var(--ink-2);
+    background:none;border:0;padding:9px 12px;border-radius:9px;cursor:pointer;transition:background .12s}
+  .sortopt:hover{background:#f1f0ea}
+  .sortopt.on{background:var(--accent-soft);color:var(--accent-ink)}
+  .toggle{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-soft);padding:9px 14px;border-radius:var(--pill);font:inherit;font-size:14px;font-weight:500;cursor:pointer;box-shadow:var(--sh-sm);transition:all .15s}
+  .toggle:hover{border-color:var(--ink)}
+  .toggle .box{width:16px;height:16px;border-radius:5px;border:1.5px solid var(--ink-faint);display:grid;place-items:center;font-size:11px;line-height:1;color:#fff;transition:all .15s}
+  .toggle.on{color:var(--ink);border-color:var(--ink)}
+  .toggle.on .box{background:var(--accent);border-color:var(--accent)}
+  .toggle.on .box::after{content:"✓"}
+  .controls .count{margin-left:14px;font-size:14px;color:var(--ink-soft)}
+  .controls .count b{color:var(--ink);font-weight:700}
+
+  /* ---------- grid ---------- */
+  main{padding:18px 0 100px}
+  .grid{display:grid;gap:clamp(14px,1.5vw,20px);grid-template-columns:repeat(auto-fill,minmax(262px,1fr))}
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
+    cursor:pointer;display:flex;flex-direction:column;box-shadow:var(--sh-sm);
+    transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s,border-color .22s;
+    opacity:0;transform:translateY(12px);
+  }
+  .card.in{opacity:1;transform:none}
+  .card:hover{transform:translateY(-5px);box-shadow:var(--sh);border-color:var(--line-2)}
+  .thumb{position:relative;aspect-ratio:1/1;background:var(--bg-2);overflow:hidden;margin:7px;border-radius:var(--r-sm)}
+  .thumb img{width:100%;height:100%;object-fit:cover;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
+  .card:hover .thumb img{transform:scale(1.05)}
+  .thumb .noimg{display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-faint);font-size:14px}
+  .src{position:absolute;top:10px;left:10px;font-size:11px;font-weight:600;letter-spacing:.01em;
+    padding:5px 11px;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);border-radius:var(--pill);color:var(--ink-2)}
+  .src .d{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--ink);margin-right:6px;vertical-align:1px}
+  /* Pricken visar FÄRSKHET (hur längesen objektet uppdaterades), inte hus. */
+  .src .d.f-green,.vhouse .d.f-green{background:#16a34a}
+  .src .d.f-blue,.vhouse .d.f-blue{background:#2f43f5}
+  .src .d.f-orange,.vhouse .d.f-orange{background:#e0822f}
+  .src .d.f-red,.vhouse .d.f-red{background:#dc2626}
+  .src .d.f-gray,.vhouse .d.f-gray{background:var(--ink-faint)}
+  /* underliggande hus (Auctionet-medlem m.fl.) - klickbart källfilter */
+  .cseller{margin-top:7px;font-size:12px;color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  .cseller:hover{color:var(--accent)} .cseller svg{opacity:.6}
+  .sellerpill{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border:1px solid transparent;padding:8px 13px;border-radius:var(--pill);cursor:pointer}
+  .sellerpill:hover{border-color:var(--accent)} .sellerpill .x{font-size:15px;line-height:1;opacity:.7}
+  .countdown{position:absolute;bottom:10px;right:10px;font-size:12px;font-weight:600;padding:6px 11px;
+    background:rgba(17,17,16,.84);backdrop-filter:blur(6px);color:#fff;border-radius:var(--pill)}
+  .countdown.soon{background:var(--accent)} .countdown.ended{background:rgba(118,116,108,.92)}
+  .lead{position:absolute;top:10px;right:10px;font-size:11px;font-weight:600;padding:5px 10px;background:var(--green);color:#fff;border-radius:var(--pill)}
+  .cbody{padding:6px 16px 17px;display:flex;flex-direction:column;gap:9px;flex:1}
+  .ctitle{font-weight:600;font-size:16px;line-height:1.28;letter-spacing:-.02em;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.55em}
+  .cloc{font-size:13px;color:var(--ink-soft);display:flex;gap:7px;align-items:center}
+  .cloc svg{flex:0 0 auto;opacity:.6}
+  .pricerow{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;padding-top:13px;border-top:1px solid var(--line)}
+  .bid .lbl,.total .lbl{font-size:11px;color:var(--ink-faint);margin-bottom:2px;font-weight:500}
+  .bid .val{font-size:15px;font-weight:600;color:var(--ink-2)}
+  .total{text-align:right}
+  .total .val{font-size:21px;font-weight:700;color:var(--accent);line-height:1}
+  .sek{font-size:11px;font-weight:500;color:var(--ink-soft);margin-top:2px;letter-spacing:.01em}
+  .feetag{font-size:11px;color:var(--ink-faint);font-style:italic;font-weight:500}
+  .resv{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;margin-bottom:8px;letter-spacing:.01em}
+  .resv.met{color:#1a7a3a;background:rgba(26,122,58,.1)}
+  .resv.no{color:var(--ink-soft);background:var(--surface-2,#f4f3ef)}
+  .resv.none{color:var(--ink-faint);background:var(--surface-2,#f4f3ef);font-weight:500}
+  .resvfilter{font:inherit;font-size:13px;font-weight:600;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:7px 10px;cursor:pointer}
+  /* Reservpris-pill PÅ bilden (kort) */
+  /* Nere till vänster, SAMMA marginal + padding + radie som hus-labeln .src (uppe till vänster). */
+  .rpill{position:absolute;bottom:10px;left:10px;font-size:11px;font-weight:600;letter-spacing:.01em;padding:5px 11px;border-radius:var(--pill);color:#fff;backdrop-filter:blur(4px);max-width:calc(100% - 86px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rpill.met{background:rgba(26,122,58,.92)}
+  .rpill.no{background:rgba(28,26,22,.66)}
+  .rpill.none{background:rgba(28,26,22,.46);color:#f1efe9;font-weight:500}
+  /* Fynd-pill (uppe till vänster): nuvarande pris under uppskattat marknadsvärde */
+  /* Uppe till HÖGER (hus-labeln .src ligger uppe till vänster - båda ska synas) */
+  .fyndpill{position:absolute;top:10px;right:10px;font-size:11px;font-weight:700;letter-spacing:.01em;
+    padding:5px 10px;border-radius:999px;color:#fff;background:linear-gradient(135deg,#c0392b,#e8622a);
+    box-shadow:0 2px 8px rgba(192,57,43,.4);white-space:nowrap}
+  .fyndbanner{margin:12px 0;padding:11px 14px;border-radius:12px;font-size:13px;line-height:1.45;
+    background:linear-gradient(135deg,rgba(192,57,43,.1),rgba(232,98,42,.08));border:1px solid rgba(192,57,43,.28);color:var(--ink)}
+  /* Visuellt lika (bild-embeddings) - horisontell miniatyr-rad i detaljvyn */
+  .vsn{font-size:11px;color:var(--ink-faint);font-weight:500;margin-left:4px}
+  .vsrow{display:flex;gap:8px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:thin}
+  .vscard{flex:0 0 auto;width:88px;border:none;background:none;padding:0;cursor:pointer;text-align:center}
+  .vscard img{width:88px;height:88px;object-fit:cover;border-radius:9px;border:1px solid var(--line,rgba(0,0,0,.08));display:block}
+  .vscard .vsnoimg{width:88px;height:88px;border-radius:9px;background:var(--paper,#f2f0ea);display:grid;place-items:center;color:var(--ink-faint)}
+  .vscard .vshouse{display:block;font-size:10px;color:var(--ink-faint);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vscard:hover img{border-color:var(--accent)}
+  /* Ungefärlig total (Junora "≈") */
+  .val.est{color:var(--accent);opacity:.92}
+  .xnote{margin-top:12px;font-size:12px;line-height:1.45;color:var(--ink-soft);background:var(--surface-2,#f4f3ef);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+  .pstats{margin-top:14px;background:var(--surface-2,#f4f3ef);border:1px solid var(--line);border-radius:12px;padding:13px 15px 15px}
+  .pshead{font-size:13px;font-weight:700;color:var(--ink);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .pscount{font-weight:600;color:var(--ink-faint);font-size:12px;white-space:nowrap}
+  .psbar{position:relative;height:9px;background:linear-gradient(90deg,#cfe0cb,#eadfcb,#e8cdb6);border-radius:6px;margin:30px 0 8px}
+  .psmark{position:absolute;top:50%;transform:translate(-50%,-50%)}
+  .psavg{width:2.5px;height:19px;background:var(--ink);border-radius:2px}
+  .psavg::before{content:"snitt";position:absolute;bottom:22px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;letter-spacing:.3px;color:var(--ink);text-transform:uppercase}
+  .pscur{width:13px;height:13px;border-radius:50%;background:var(--accent);border:2.5px solid var(--surface,#fff);box-shadow:0 0 0 1.5px var(--accent)}
+  .pslabels{display:flex;justify-content:space-between;font-size:12px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .pslabels .c{font-weight:800;color:var(--ink)}
+  .psnote{margin-top:11px;font-size:12.5px;color:var(--ink-soft);display:flex;align-items:center;gap:7px}
+  .psnote b{color:var(--ink)}
+  .psdot{width:9px;height:9px;border-radius:50%;background:var(--accent);flex:none}
+  .psdet{margin-top:11px;border-top:1px solid var(--line);padding-top:9px}
+  .psdet summary{font-size:12.5px;font-weight:600;color:var(--accent-ink,var(--accent));cursor:pointer;list-style:none;user-select:none}
+  .psdet summary::-webkit-details-marker{display:none}
+  .psdet summary::before{content:"▸ ";font-size:10px}
+  .psdet[open] summary::before{content:"▾ "}
+  .pslist{margin-top:8px;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:1px}
+  .psitem{display:flex;gap:10px;padding:7px 2px;border-bottom:1px solid var(--line)}
+  .psthumb{width:46px;height:46px;flex:none;border-radius:6px;object-fit:cover;background:var(--line);border:1px solid var(--line)}
+  .psthumb.ph{display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--ink-faint)}
+  .psbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .pstop{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+  .pst{font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .psp{font-size:12.5px;font-weight:700;color:var(--ink);text-align:right;white-space:nowrap;flex:none}
+  .psd{font-size:11.5px;color:var(--ink-faint);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .psh{font-size:11px;color:var(--ink-faint);opacity:.85}
+  .smartx{margin:0 0 14px;font-size:12.5px;color:var(--ink-faint);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .smartx .sxlbl{font-weight:600;color:var(--ink-soft)}
+  .smartx .sxchip{background:var(--card,#fff);border:1px solid var(--line);border-radius:99px;padding:3px 10px;color:var(--ink-soft)}
+  .smartx .sxchip.rel{cursor:pointer;font:inherit;font-style:italic;opacity:.85}
+  .smartx .sxchip.rel:hover{opacity:1;border-color:var(--accent-ink,var(--accent));color:var(--accent-ink,var(--accent))}
+  .smartx .sxcat{cursor:pointer;font:inherit;color:var(--accent-ink,var(--accent));border-color:var(--accent-ink,var(--accent))}
+  /* Kategori-chips: detaljvyn (klick → filtrera) + "Visa liknande". */
+  .dcats{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0 12px}
+  .dcat{cursor:pointer;font:600 12px inherit;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:4px 12px}
+  .dcat:hover{border-color:var(--accent-ink,var(--accent));color:var(--accent-ink,var(--accent))}
+  .dcat.sim{color:var(--accent-ink,var(--accent));border-color:var(--accent-ink,var(--accent))}
+  /* Kategori-tag på kortet (klick → filtrera; stoppar kort-klicket). */
+  .ccat{margin-left:auto;font-size:11px;font-weight:600;color:var(--ink-faint);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:2px 9px;white-space:nowrap;max-width:46%;overflow:hidden;text-overflow:ellipsis}
+  .ccat:hover{color:var(--accent-ink,var(--accent));border-color:var(--accent-ink,var(--accent))}
+  .aibtn{margin-top:9px;font:600 12px inherit;color:var(--accent-ink,var(--accent));background:none;border:1px solid var(--line);border-radius:7px;padding:5px 11px;cursor:pointer}
+  .aibtn:disabled{opacity:.55;cursor:wait}
+  .psitem.psx{opacity:.42}
+  .psitem.psx .pst,.psitem.psx .psp{text-decoration:line-through}
+  .aiok{color:#2e7d46;font-weight:700}
+  .aibad{color:#b3402e;font-weight:700}
+  .ainote{font-size:11px;color:var(--ink-faint);margin-top:6px}
+
+  /* ---------- detalj-modal ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(12,12,11,.72);backdrop-filter:blur(7px);opacity:0;pointer-events:none;transition:opacity .25s;z-index:50}
+  .scrim.open{opacity:1;pointer-events:auto}
+  .modal{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:clamp(8px,2.5vw,38px);pointer-events:none;visibility:hidden}
+  .modal.open{visibility:visible}
+  .sheet{pointer-events:none;background:var(--bg);border-radius:22px;overflow:hidden;width:min(1080px,100%);max-height:92vh;display:flex;box-shadow:var(--sh-lg);
+    transform:translateY(16px) scale(.985);opacity:0;transition:transform .32s cubic-bezier(.2,.85,.2,1),opacity .25s,visibility .32s}
+  .modal.open .sheet{transform:none;opacity:1;pointer-events:auto}
+  .mclose{position:absolute;top:14px;right:14px;z-index:6;width:40px;height:40px;border-radius:50%;border:0;background:rgba(17,17,16,.55);color:#fff;font-size:20px;cursor:pointer;backdrop-filter:blur(8px);transition:background .15s}
+  .mclose:hover{background:var(--ink)}
+  /* viewer (vänster) */
+  .viewer{flex:1 1 56%;min-width:0;background:var(--bg-2);display:flex;flex-direction:column;border-right:1px solid var(--line)}
+  .vmain{position:relative;flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:22px;cursor:zoom-in}
+  .vmain img{max-width:100%;max-height:100%;object-fit:contain;border-radius:10px;box-shadow:var(--sh-sm)}
+  .vnav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;border:0;background:rgba(255,255,255,.92);color:var(--ink);font-size:22px;cursor:pointer;display:grid;place-items:center;box-shadow:var(--sh-sm);transition:transform .12s}
+  .vnav:hover{transform:translateY(-50%) scale(1.09)} .vnav.prev{left:14px} .vnav.next{right:14px}
+  .vcount{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);background:rgba(17,17,16,.7);color:#fff;font-size:12px;font-weight:600;padding:5px 12px;border-radius:var(--pill)}
+  .vthumbs{display:flex;gap:8px;padding:12px;overflow-x:auto;background:var(--bg);border-top:1px solid var(--line)}
+  .vthumbs img{width:60px;height:60px;flex:0 0 auto;object-fit:cover;border-radius:9px;cursor:pointer;opacity:.5;border:2px solid transparent;transition:opacity .15s,border-color .15s}
+  .vthumbs img.on,.vthumbs img:hover{opacity:1} .vthumbs img.on{border-color:var(--ink)}
+  /* info (höger) */
+  .vinfo{flex:1 1 44%;min-width:0;overflow-y:auto;padding:clamp(22px,2.6vw,32px)}
+  .vhouse{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);padding:6px 13px;border-radius:var(--pill);margin-bottom:18px}
+  .vhouse .d{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  /* lightbox */
+  .lightbox{position:fixed;inset:0;z-index:80;background:rgba(8,8,7,.95);display:none;align-items:center;justify-content:center}
+  .lightbox.open{display:flex}
+  .lightbox img{max-width:94vw;max-height:90vh;object-fit:contain;border-radius:6px}
+  .lightbox button{position:absolute;border:0;background:rgba(255,255,255,.13);color:#fff;cursor:pointer;border-radius:50%;backdrop-filter:blur(6px);transition:background .15s}
+  .lightbox button:hover{background:rgba(255,255,255,.24)}
+  .lightbox .lnav{top:50%;transform:translateY(-50%);width:56px;height:56px;font-size:26px}
+  .lightbox .lnav.prev{left:24px} .lightbox .lnav.next{right:24px}
+  .lightbox .lclose{top:24px;right:24px;width:46px;height:46px;font-size:22px}
+  .lightbox .lcount{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;opacity:.85}
+  @media(max-width:768px){
+    .sheet{flex-direction:column;max-height:94vh}
+    .viewer{flex:none;border-right:0;border-bottom:1px solid var(--line)}
+    .vmain{height:44vh}
+  }
+  .dtitle{font-size:clamp(23px,2.4vw,30px);font-weight:700;line-height:1.14;letter-spacing:-.03em;margin-bottom:12px}
+  .dmeta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
+  .dmeta span{font-size:13px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);padding:6px 12px;border-radius:var(--pill)}
+  .breakdown{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin-bottom:24px;box-shadow:var(--sh-sm)}
+  .breakdown .cap{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--ink-soft);margin-bottom:12px}
+  .breakdown .row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:15px;color:var(--ink-2)}
+  .breakdown .row .v{font-weight:600;color:var(--ink)}
+  .breakdown .row.tot{border-top:1px solid var(--line);margin-top:8px;padding-top:15px}
+  .breakdown .row.tot span:first-child{font-weight:600;color:var(--ink)}
+  .breakdown .row.tot .v{font-size:27px;font-weight:800;color:var(--accent);letter-spacing:-.03em}
+  .ddesc{font-size:15px;line-height:1.65;color:var(--ink-2);margin-bottom:8px}
+  .ddesc p{margin-bottom:10px}
+  .seclbl{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin:26px 0 12px}
+  .bidlist{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  .bidrow{display:flex;justify-content:space-between;align-items:center;padding:13px 18px;border-bottom:1px solid var(--line);font-size:14px}
+  .bidrow:last-child{border-bottom:0}
+  .bidrow .amt{font-weight:700;color:var(--ink)}
+  .bidrow:first-child .amt{color:var(--accent)}
+  .bidrow .t{color:var(--ink-soft);font-size:12.5px}
+  .bidrow .auto{font-size:10px;font-weight:600;color:var(--accent-ink);background:var(--accent-soft);padding:2px 7px;border-radius:var(--pill);margin-left:8px}
+  .cta{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:28px;background:var(--ink);color:#fff;
+    padding:17px;border-radius:var(--pill);font-weight:600;font-size:15.5px;transition:background .15s}
+  .cta:hover{background:var(--accent)}
+
+  .empty{padding:90px 20px;text-align:center;color:var(--ink-soft);font-size:18px}
+  .skeleton{aspect-ratio:.78;background:linear-gradient(100deg,var(--bg-2) 30%,#f1efe8 50%,var(--bg-2) 70%);background-size:200% 100%;animation:sh 1.3s infinite;border-radius:var(--r)}
+  @keyframes sh{to{background-position:-200% 0}}
+  footer{border-top:1px solid var(--line);margin-top:30px}
+  .foot-in{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;padding:26px 0;font-size:13px;color:var(--ink-soft)}
+  .freshleg{display:inline-flex;gap:13px;align-items:center;font-size:12px;color:var(--ink-soft)}
+  .freshleg span{display:inline-flex;align-items:center;gap:5px}
+  .freshleg i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .freshleg .f-green{background:#16a34a}.freshleg .f-blue{background:#2f43f5}.freshleg .f-orange{background:#e0822f}.freshleg .f-red{background:#dc2626}
+
+  /* ---------- ruttplanerare ---------- */
+  .rcount{display:none;min-width:18px;height:18px;padding:0 5px;margin-left:2px;border-radius:9px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center}
+  .rcount.on{display:inline-block}
+  #routepanel{margin:6px 0 20px}
+  .rp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}
+  .rp-h{font-size:22px;font-weight:700;letter-spacing:-.02em}
+  .rp-sub{color:var(--ink-soft);font-size:13.5px;max-width:640px;margin-top:4px}
+  .rp-src{font-size:11.5px;font-weight:600;color:var(--ink-soft);background:var(--surface);border:1px solid var(--line-2);padding:5px 10px;border-radius:var(--pill);white-space:nowrap}
+  .rp-grid{display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:22px;align-items:start}
+  @media(max-width:820px){.rp-grid{grid-template-columns:1fr}}
+  .rp-form{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--sh-sm)}
+  .rp-lbl{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;margin:0 0 6px}
+  .rp-in{width:100%;border:1px solid var(--line-2);background:var(--bg);border-radius:var(--r-sm);padding:10px 12px;font:inherit;font-size:14.5px;color:var(--ink);transition:border .15s,box-shadow .15s}
+  .rp-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .rp-opts{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin:12px 0 4px}
+  .rp-time{width:84px;text-align:center}
+  .rp-chk{display:inline-flex;align-items:center;gap:7px;font-size:14px;color:var(--ink-2);cursor:pointer;padding-bottom:10px}
+  .rp-chk input{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+  .rp-stopshead{display:flex;justify-content:space-between;align-items:center;margin:16px 0 8px}
+  .rp-n{display:inline-block;background:var(--bg-2);color:var(--ink-soft);border-radius:var(--pill);padding:1px 8px;font-size:12px;font-weight:700;margin-left:4px}
+  .rp-clear{background:none;border:none;color:var(--ink-faint);font:inherit;font-size:12.5px;cursor:pointer;text-decoration:underline;padding:0}
+  .rp-clear:hover{color:#dc2626}
+  .rp-stop{border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 12px;margin-bottom:9px;background:var(--bg);position:relative}
+  .rp-stop .rp-x{position:absolute;top:8px;right:9px;border:none;background:none;color:var(--ink-faint);font-size:18px;line-height:1;cursor:pointer;padding:0}
+  .rp-stop .rp-x:hover{color:#dc2626}
+  .rp-stop-lbl{font-weight:600;font-size:14px;margin-bottom:7px;padding-right:20px}
+  .rp-stop input{width:100%;border:1px solid var(--line-2);background:var(--surface);border-radius:8px;padding:7px 9px;font:inherit;font-size:13px;margin-bottom:6px}
+  .rp-stop input:focus{outline:none;border-color:var(--accent)}
+  .rp-mini{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .rp-mini label{font-size:10.5px;color:var(--ink-faint);font-weight:600;display:block;margin-bottom:1px}
+  .rp-mini input{margin-bottom:0;text-align:center}
+  .rp-add{width:100%;border:1px dashed var(--line-2);background:none;color:var(--ink-soft);border-radius:var(--r-sm);padding:10px;font:inherit;font-size:14px;font-weight:500;cursor:pointer;margin-top:2px;transition:all .15s}
+  .rp-add:hover{border-color:var(--accent);color:var(--accent)}
+  .rp-go{width:100%;border:none;background:var(--accent);color:#fff;border-radius:var(--r-sm);padding:12px;font:inherit;font-size:15px;font-weight:600;cursor:pointer;margin-top:12px;box-shadow:var(--sh-sm);transition:all .15s}
+  .rp-go:hover{background:var(--accent-ink)}
+  .rp-go:disabled{opacity:.55;cursor:default}
+  .rp-err{color:#dc2626;font-size:13px;margin-top:10px;min-height:1px}
+  .rp-out{min-height:120px}
+  .rp-empty{color:var(--ink-faint);font-size:14px;padding:34px 18px;text-align:center;border:1px dashed var(--line-2);border-radius:var(--r)}
+  .rp-cards{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px}
+  .rp-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 15px;box-shadow:var(--sh-sm)}
+  .rp-card .k{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em}
+  .rp-card .v{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-top:2px}
+  .rp-tl{margin-top:6px;border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface)}
+  .rp-tlrow{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--line);font-size:14px}
+  .rp-tlrow:last-child{border-bottom:none}
+  .rp-tlrow.depot{background:var(--bg-2)}
+  .rp-seq{flex:none;width:26px;height:26px;border-radius:50%;background:var(--accent);color:#fff;font-size:12.5px;font-weight:700;display:flex;align-items:center;justify-content:center}
+  .rp-tlrow.depot .rp-seq{background:var(--ink)}
+  .rp-tlmain{flex:1;min-width:0}
+  .rp-tlname{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rp-tlleg{font-size:12px;color:var(--ink-faint);margin-top:1px}
+  .rp-tltime{flex:none;text-align:right;font-variant-numeric:tabular-nums}
+  .rp-tltime .ar{font-weight:700;font-size:15px}
+  .rp-tltime .sv{font-size:11.5px;color:var(--ink-soft)}
+  .rp-late{color:#dc2626 !important;font-weight:700}
+  .rp-wait{color:#e0822f}
+  .rp-num{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+  .rp-num.depot{background:var(--ink)}
+  .rp-addbtn{display:block;width:100%;text-align:center;margin-top:9px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);border-radius:var(--r-sm);padding:11px;font:inherit;font-size:14.5px;font-weight:600;cursor:pointer;transition:all .15s}
+  .rp-addbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .rp-addbtn.added{border-color:var(--green);color:var(--green);background:#f0faf5}
+
+  /* ---------- nav: klocka + sparade ---------- */
+  .navbtn{position:relative;border:1px solid var(--line-2);background:var(--surface);border-radius:50%;width:38px;height:38px;font-size:16px;cursor:pointer;transition:all .15s;line-height:1}
+  .navbtn:hover{border-color:var(--accent)}
+  .nbadge{position:absolute;top:-5px;right:-6px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#dc2626;color:#fff;font-size:10.5px;font-weight:700;line-height:17px;text-align:center}
+  .belldd{position:relative}
+  .bellmenu{position:absolute;right:0;top:46px;width:380px;max-width:86vw;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-sm);box-shadow:var(--sh-lg);z-index:80;overflow:hidden}
+  .bellhead{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);border-bottom:1px solid var(--line);background:var(--bg)}
+  .bellhead.sub{border-top:1px solid var(--line)}
+  .bellread{border:none;background:none;color:var(--accent);font:inherit;font-size:12px;cursor:pointer;text-transform:none;letter-spacing:0}
+  .belllist{max-height:300px;overflow-y:auto}
+  .bitem{display:flex;align-items:flex-start;gap:9px;padding:10px 14px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px}
+  .bitem:hover{background:var(--accent-soft)}
+  .bitem.unread{background:#f6f8ff}
+  .bitem:last-child{border-bottom:none}
+  .bdot{flex:none;width:8px;height:8px;border-radius:50%;margin-top:5px}
+  .bmain{flex:1;min-width:0}
+  .bt{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .bb{display:block;color:var(--ink-soft);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .btime{flex:none;color:var(--ink-faint);font-size:11.5px;margin-top:2px}
+  .bempty{padding:16px 14px;color:var(--ink-faint);font-size:13px}
+  .pushenable{display:block;width:calc(100% - 20px);margin:10px;padding:9px 12px;border:1px solid var(--accent);background:var(--accent-soft);color:var(--accent-ink);border-radius:var(--r-sm);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer}
+  .pushenable:hover{background:var(--accent);color:#fff}
+  /* Bottom-right notis-popups (in-page). Döljs i fullskärm och när sidan inte är synlig. */
+  #ntoasts{position:fixed;right:18px;bottom:18px;z-index:300;display:flex;flex-direction:column;gap:10px;max-width:340px;pointer-events:none}
+  .ntoast{pointer-events:auto;background:var(--surface);border:1px solid var(--line-2);border-left:4px solid var(--accent);border-radius:var(--r-sm);box-shadow:var(--sh-lg);padding:12px 14px;cursor:pointer;display:flex;gap:10px;align-items:flex-start;transform:translateX(120%);opacity:0;transition:transform .35s cubic-bezier(.2,.9,.3,1),opacity .35s}
+  .ntoast.in{transform:translateX(0);opacity:1}
+  .ntoast .nti{flex:none;font-size:18px;line-height:1.2}
+  .ntoast .ntm{flex:1;min-width:0}
+  .ntoast .ntt{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ntoast .ntb{color:var(--ink-soft);font-size:12.5px;margin-top:1px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .ntoast .ntx{flex:none;border:none;background:none;color:var(--ink-faint);font-size:16px;line-height:1;cursor:pointer;padding:0 2px}
+  .ntoast .ntx:hover{color:var(--ink)}
+
+  /* ---------- kort: bevaka-stjärna + bud-chip + skick-chip ---------- */
+  .wstar{position:absolute;top:44px;right:10px;width:30px;height:30px;border-radius:50%;border:none;background:rgba(28,26,22,.45);backdrop-filter:blur(4px);color:#fff;font-size:15px;cursor:pointer;transition:all .15s;line-height:1}
+  .wstar:hover{background:rgba(28,26,22,.7);transform:scale(1.1)}
+  .wstar.on{background:var(--accent);color:#fff}
+  .bchip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:var(--pill);margin-left:6px;vertical-align:1px;white-space:nowrap}
+  .bchip.hot{background:#fdecec;color:#dc2626}
+  .bchip.calm{background:var(--bg-2);color:var(--ink-soft)}
+  .condchip{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:var(--pill);margin-left:6px;vertical-align:1px}
+  .condchip.cny{background:#e7f6ee;color:#0c8a5a}
+  .condchip.cot{background:#fdf3ec;color:#b4451f}
+
+  /* ---------- upptäck-sektioner (startsidan) ---------- */
+  .dsec{margin:4px 0 22px}
+  .dhead{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px}
+  .dhead h3{font-size:17px;font-weight:700;letter-spacing:-.02em}
+  .dsub{font-size:12.5px;font-weight:500;color:var(--ink-faint);margin-left:6px}
+  .dall{border:none;background:none;color:var(--accent);font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}
+  .dall:hover{text-decoration:underline}
+  .drow{display:flex;gap:14px;overflow-x:auto;padding:2px 2px 10px;scroll-snap-type:x proximity}
+  .drow .card{flex:0 0 235px;scroll-snap-align:start}
+  .drow .dsk{flex:0 0 235px;height:300px;border-radius:var(--r)}
+  /* prisgraf */
+  .plchart{max-width:860px;margin:16px 0 4px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+  .plctitle{font-size:13px;font-weight:700;color:var(--ink-2);margin-bottom:6px}
+  .plctitle span{font-weight:500;color:var(--ink-soft);margin-left:6px}
+  .plchart svg{width:100%;height:auto;display:block}
+  .plchart .ax{stroke:var(--line-2);stroke-width:1}
+  .plchart .axlbl{fill:var(--ink-faint);font-size:10px;font-family:inherit}
+  .gridhead h3{font-size:17px;font-weight:700;letter-spacing:-.02em;margin:8px 0 12px}
+
+  /* ---------- jämför-vy (bevakade objekt) ---------- */
+  .cmpwrap{position:fixed;inset:0;background:rgba(17,17,16,.45);z-index:90;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px}
+  .cmpsheet{background:var(--surface);border-radius:var(--r);box-shadow:var(--sh-lg);width:min(1080px,100%);max-height:84vh;display:flex;flex-direction:column;overflow:hidden}
+  .cmphead{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}
+  .cmphead h3{font-size:18px;font-weight:700}
+  .cmpacts{display:flex;gap:10px;align-items:center}
+  .cmpbtn{border:1px solid var(--line-2);background:var(--surface);border-radius:var(--pill);padding:8px 14px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;transition:all .15s}
+  .cmpbtn:hover{border-color:var(--accent);color:var(--accent)}
+  .cmpbody{overflow:auto;padding:6px 20px 20px}
+  .cmptbl{width:100%;border-collapse:collapse;font-size:13.5px}
+  .cmptbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);padding:10px 8px;border-bottom:1px solid var(--line)}
+  .cmptbl td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .cmptbl th.num,.cmptbl td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .cmptbl a{color:var(--accent-ink);font-weight:600}
+  .cmpimg{width:52px;height:40px;object-fit:cover;border-radius:7px;display:block}
+  .cmpimg.ph{display:flex;align-items:center;justify-content:center;background:var(--bg-2);color:var(--ink-faint)}
+  .cmprm{border:none;background:none;color:var(--ink-faint);font-size:17px;cursor:pointer;padding:2px 6px}
+  .cmprm:hover{color:#dc2626}
+  .cended td{opacity:.55}
+  .cendlbl{color:var(--ink-faint);font-size:12px}
+
+  /* ---------- prisuppslag ---------- */
+  .plform{display:flex;gap:10px;max-width:640px;margin:2px 0 6px}
+  .plgo{width:auto;padding:12px 26px;margin-top:0}
+  .plnote{color:var(--ink-soft);font-size:12.5px;margin:8px 0 10px}
+  .pllist{border:1px solid var(--line);border-radius:var(--r);overflow:hidden;background:var(--surface);max-width:860px}
+  .plrow{display:flex;align-items:center;gap:13px;padding:10px 14px;border-bottom:1px solid var(--line)}
+  .plrow:last-child{border-bottom:none}
+  .plimg{width:56px;height:44px;object-fit:cover;border-radius:8px;flex:none}
+  .plimg.ph{display:flex;align-items:center;justify-content:center;background:var(--bg-2);color:var(--ink-faint)}
+  .plmain{flex:1;min-width:0}
+  .plt{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .plm{color:var(--ink-soft);font-size:12.5px}
+  .plp{font-weight:700;font-size:15px;text-align:right;flex:none}
+  .pltot{font-size:11.5px;color:var(--ink-soft);font-weight:500}
+  .plperiods{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 2px}
+  .plchip{padding:6px 15px;border:1px solid var(--line-2);background:var(--surface);border-radius:999px;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;transition:all .12s}
+  .plchip:hover{border-color:var(--accent);color:var(--accent-ink)}
+  .plchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .rp-card.hl{background:var(--accent-soft);border-color:var(--accent)}
+  .rp-card.hl .v{color:var(--accent-ink)}
+  .plconf{font-size:10.5px;font-weight:600;color:var(--ink-soft);text-transform:none;letter-spacing:0;margin-left:6px;white-space:nowrap}
+  .plconf.low{color:#b4451f}
+  .plbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 10px;max-width:860px}
+  .plbar .plnote{margin:0}
+  .plcsv{width:auto;margin:0;padding:8px 16px;font-size:13px;font-weight:600;background:var(--surface);color:var(--ink);border:1px solid var(--line-2);border-radius:var(--r-sm);cursor:pointer;flex:none;transition:all .12s}
+  .plcsv:hover{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+  .rp-auto{padding-bottom:0;margin:2px 0 2px;align-items:flex-start;line-height:1.35;font-size:13.5px;color:var(--ink-soft)}
+  .rp-auto input{margin-top:2px}
+  .rp-warn{color:#b4451f;background:#fdf3ec;border:1px solid #f3d9c9;border-radius:var(--r-sm);padding:9px 12px;font-size:12.5px;margin-top:10px}
+  .rsug{position:absolute;z-index:120;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-sm);box-shadow:var(--sh);max-height:280px;overflow-y:auto;font-size:13.5px}
+  .rsug-item{padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .rsug-item:last-child{border-bottom:none}
+  .rsug-item:hover{background:var(--accent-soft);color:var(--accent-ink)}
+  /* Admin-gating: personliga funktioner döljs tills man loggat in. */
+  .admin-only{display:none!important}
+  body.is-admin .navbtn.admin-only{display:inline-block!important}
+  body.is-admin .belldd.admin-only{display:block!important}
+  body.is-admin .toggle.admin-only{display:inline-flex!important}
+  .footlinks{display:inline-flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .footlinks a{color:var(--ink-soft);text-decoration:none}
+  .footlinks a:hover{color:var(--accent)}
+  .admin-login-link{opacity:.75}
+  /* Login-modal */
+  .loginwrap{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;
+    background:rgba(20,18,14,.42);backdrop-filter:blur(3px);padding:20px}
+  .loginwrap[hidden]{display:none}
+  .loginbox{position:relative;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r-md,16px);
+    box-shadow:var(--sh);width:100%;max-width:380px;padding:26px 26px 24px}
+  .loginbox h3{margin:0 0 6px;font-size:19px}
+  .loginsub{margin:0 0 16px;font-size:13.5px;color:var(--ink-soft);line-height:1.5}
+  .loginbox .mclose{position:absolute;top:12px;right:12px}
+  #loginForm{display:flex;gap:8px}
+  #loginPw{flex:1;padding:11px 13px;border:1px solid var(--line-2);border-radius:10px;font-size:14px;background:var(--bg);color:var(--ink)}
+  #loginGo{padding:11px 16px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-size:14px}
+  #loginGo:hover{filter:brightness(1.05)}
+  .loginerr{margin-top:11px;color:#c0392b;font-size:13px}
+  .loginerr[hidden]{display:none}
+  /* Admin-gate (helsides-prompt på /priser & /rutt när ej inloggad) */
+  .agate{text-align:center;max-width:440px;margin:60px auto;padding:34px 26px;
+    background:var(--surface);border:1px solid var(--line);border-radius:18px}
+  .agate[hidden]{display:none}
+  .agate .agicon{font-size:34px;margin-bottom:8px}
+  .agate h2{margin:0 0 8px;font-size:22px}
+  .agate p{margin:0 0 20px;color:var(--ink-soft);font-size:14.5px;line-height:1.55}
+  .agacts{display:flex;gap:12px;justify-content:center;align-items:center}
+  .aglink{color:var(--ink-soft);text-decoration:none;font-size:14px}
+  .aglink:hover{color:var(--accent)}
+  /* ---------- tillgänglighet: synligt tangentbordsfokus (men ej vid musklick) ---------- */
+  :focus-visible{outline:2.5px solid var(--accent);outline-offset:2px}
+  :focus:not(:focus-visible){outline:none}
+  /* Respektera reducerad rörelse: stäng av lyft, intoning, puls och bildzoom. */
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;
+      transition-duration:.001ms!important;scroll-behavior:auto!important}
+    .card{opacity:1!important;transform:none!important}
+  }
+  /* Upptäck-rader: tunn scrollbar + mjuk kant-fade till höger som hint om sidled-scroll. */
+  .drow{scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+  .drow::-webkit-scrollbar{height:8px}
+  .drow::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:8px}
+  .drow::-webkit-scrollbar-track{background:transparent}
+  .dsec{position:relative}
+  .dsec::after{content:"";position:absolute;right:0;top:36px;bottom:16px;width:46px;pointer-events:none;
+    background:linear-gradient(to right,transparent,var(--bg))}
+  /* ---------- mobil-finslip ---------- */
+  @media(max-width:560px){
+    .nav-meta{gap:11px}
+    .live{font-size:12px}
+    /* Sortera-etiketten tar plats i den trånga filterraden - dölj ordet, dropdownen räcker. */
+    .sortsel>span{display:none}
+    .controls{gap:8px}
+  }
+</style>
+</head>
+<body>
+  <nav>
+    <div class="wrap nav-in">
+      <a class="logo" href="/"><span class="mark"></span> Allarop</a>
+      <div class="nav-meta">
+        <button class="navbtn admin-only" id="cmpBtn" type="button" title="Bevakade objekt - jämför">★<span class="nbadge" id="cmpCount" hidden></span></button>
+        <div class="belldd admin-only">
+          <button class="navbtn" id="bellBtn" type="button" title="Notiser">🔔<span class="nbadge" id="bellCount" hidden></span></button>
+          <div class="bellmenu" id="bellMenu" hidden>
+            <div class="bellhead"><span>Notiser</span><button class="bellread" id="bellRead" type="button">Markera lästa</button></div>
+            <button class="pushenable" id="pushEnable" type="button" hidden>🔔 Aktivera notiser på den här enheten</button>
+            <div class="belllist" id="notifList"></div>
+            <div class="bellhead sub"><span>Bevakade sökningar</span></div>
+            <div class="belllist" id="searchList"></div>
+          </div>
+        </div>
+        <span class="live"><span class="pulse"></span> <span id="livecount">Live</span></span>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap">
+      <h1>Alla Sveriges nätauktioner. <span class="g">Ett sökfält.</span></h1>
+      <p class="sub">Sök, följ och jämför objekt från flera auktionssajter - med det verkliga totalpriset inklusive avgifter, inte bara budet.</p>
+      <form class="search" id="searchForm" autocomplete="off">
+        <span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+        <input id="q" name="q" placeholder="Sök t.ex. 3d-skrivare, grävmaskin, Kosta Boda…" />
+        <button type="submit">Sök</button>
+      </form>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="controls" id="controls">
+      <div class="srcdd" id="srcDD">
+        <button class="srcbtn" id="srcBtn" type="button" aria-haspopup="true" aria-expanded="false">
+          <span id="srcLabel">Alla källor</span>
+          <span class="srcbadge" id="srcBadge" hidden></span>
+          <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="srcmenu" id="srcMenu" role="menu">
+          <div class="srcsearch" id="srcSearchWrap" hidden><input id="srcSearch" type="text" placeholder="Sök källa…" autocomplete="off" /></div>
+          <div class="srchead"><span class="lbl">Källor</span><button class="srcclear" id="srcClear" type="button" hidden>Rensa</button></div>
+          <div class="srclist" id="srcList"></div>
+        </div>
+      </div>
+      <div class="srcdd" id="catDD">
+        <button class="srcbtn" id="catBtn" type="button" aria-haspopup="true" aria-expanded="false">
+          <span id="catLabel">Alla kategorier</span>
+          <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="srcmenu" id="catMenu" role="menu">
+          <div class="srchead"><span class="lbl">Kategori</span><button class="srcclear" id="catClear" type="button" hidden>Rensa</button></div>
+          <div class="srclist" id="catList"></div>
+        </div>
+      </div>
+      <div class="srcdd" id="ortDD">
+        <button class="srcbtn" id="ortBtn" type="button" aria-haspopup="true" aria-expanded="false">
+          <span id="ortLabel">Alla orter</span>
+          <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="srcmenu" id="ortMenu" role="menu">
+          <div class="srcsearch"><input id="ortSearch" type="text" placeholder="Sök ort…" autocomplete="off" /></div>
+          <div class="srchead"><span class="lbl">Ort</span><button class="srcclear" id="ortClear" type="button" hidden>Rensa</button></div>
+          <div class="srclist" id="ortList"></div>
+        </div>
+      </div>
+      <div class="sortdd" id="prisDD">
+        <button class="sortbtn" id="prisBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span id="prisLabel">Alla priser</span>
+          <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="sortmenu" id="prisMenu" role="listbox">
+          <button class="sortopt on" data-min="" data-max="" role="option">Alla priser</button>
+          <button class="sortopt" data-min="" data-max="500" role="option">Under 500 kr</button>
+          <button class="sortopt" data-min="500" data-max="2000" role="option">500 – 2 000 kr</button>
+          <button class="sortopt" data-min="2000" data-max="10000" role="option">2 000 – 10 000 kr</button>
+          <button class="sortopt" data-min="10000" data-max="" role="option">Över 10 000 kr</button>
+        </div>
+      </div>
+      <div class="sortdd" id="slutDD">
+        <button class="sortbtn" id="slutBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span id="slutLabel">Alla tider</span>
+          <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="sortmenu" id="slutMenu" role="listbox">
+          <button class="sortopt on" data-slut="" role="option">Alla tider</button>
+          <button class="sortopt" data-slut="24h" role="option">Slutar inom 24h</button>
+          <button class="sortopt" data-slut="3d" role="option">Inom 3 dygn</button>
+          <button class="sortopt" data-slut="7d" role="option">Inom 7 dygn</button>
+        </div>
+      </div>
+      <span id="sellerPill"></span>
+      <div class="sortsel"><span>Sortera</span>
+        <div class="sortdd" id="sortDD">
+          <button class="sortbtn" id="sortBtn" type="button" aria-haspopup="listbox" aria-expanded="false">
+            <span id="sortLabel">Slutar snart</span>
+            <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+          <div class="sortmenu" id="sortMenu" role="listbox">
+            <button class="sortopt on" data-sort="ending" role="option">Slutar snart</button>
+            <button class="sortopt" data-sort="fynd" role="option">🔥 Fynd (under värdet)</button>
+            <button class="sortopt" data-sort="newest" role="option">Senast tillagda</button>
+            <button class="sortopt" data-sort="price_high" role="option">Högst pris</button>
+            <button class="sortopt" data-sort="price_low" role="option">Lägst pris</button>
+            <button class="sortopt" data-sort="bids" role="option">Flest bud</button>
+            <button class="sortopt" data-sort="fewest" role="option">Minst bud</button>
+          </div>
+        </div>
+      </div>
+      <button class="toggle" id="endedToggle" type="button"><span class="box"></span>Visa avslutade</button>
+      <button class="toggle" id="konkursToggle" type="button" title="Bara konkurs-/likvidationsauktioner"><span class="box"></span>Konkurs</button>
+      <button class="toggle" id="nyToggle" type="button" title="Bara objekt som säljaren beskriver som nya/oanvända"><span class="box"></span>Ny/oanvänd</button>
+      <button class="toggle admin-only" id="saveSearchBtn" type="button" title="Få notis när nya objekt matchar din sökning/filter">🔔 Bevaka sökning</button>
+      <!-- Reservpris-filter avstängt för stunden (reservdata finns bara på vissa hus).
+           När det återinförs: bygg om som custom-dropdown (likt Sortera) så det matchar
+           designen - native <select> går ej att styla. Elementet behålls dolt så JS-handlern
+           inte bryts. -->
+      <select class="resvfilter" id="reserveFilter" title="Filtrera på reservationspris" aria-label="Reservationspris" hidden>
+        <option value="">Alla (reservpris)</option>
+        <option value="met">Reservpris uppnått</option>
+        <option value="not_met">Reservpris ej uppnått</option>
+        <option value="none">Inget reservpris</option>
+      </select>
+      <span class="count" id="count"></span>
+    </div>
+  </div>
+
+  <main class="wrap">
+    <div class="smartx" id="smartx" hidden></div>
+
+    <!-- Ruttplanerare (egen sida /rutt): manuell inmatning → optimal ordning + tidslinje +
+         faktisk vägrutt. ORS/VROOM (äkta tidsfönster + auto-starttid) med lokal fallback. -->
+    <div id="routepanel" style="display:none">
+      <div class="rp-head">
+        <div>
+          <h2 class="rp-h">Ruttplanerare</h2>
+          <p class="rp-sub">Fyll i din startpunkt och de upphämtningar du vill hinna. Vi räknar ut bästa ordning och en tidslinje. Lägg till stopp direkt från ett objekt via "Lägg till i rutt".</p>
+        </div>
+        <div class="rp-src" id="rSrcBadge" title="Källa för restider"></div>
+      </div>
+      <div class="rp-grid">
+        <div class="rp-form">
+          <label class="rp-lbl">Startpunkt (adress eller ort)</label>
+          <input class="rp-in" id="rDepot" placeholder="t.ex. Sveavägen 1, Stockholm" autocomplete="off">
+          <div class="rp-opts">
+            <span><label class="rp-lbl">Starttid</label><input class="rp-in rp-time" id="rStart" value="08:00"></span>
+            <label class="rp-chk"><input type="checkbox" id="rReturn" checked> Åter till start</label>
+          </div>
+          <label class="rp-chk rp-auto"><input type="checkbox" id="rAuto"> Låt optimeraren välja starttid (så du hinner varje stopp inom öppettiderna)</label>
+          <div class="rp-stopshead"><label class="rp-lbl">Stopp <span class="rp-n" id="rStopN">0</span></label><button class="rp-clear" id="rClear" type="button">Rensa alla</button></div>
+          <div id="rStops"></div>
+          <button class="rp-add" id="rAddStop" type="button">+ Lägg till stopp</button>
+          <button class="rp-go" id="rOptimize" type="button">Optimera rutt</button>
+          <div class="rp-err" id="rError"></div>
+        </div>
+        <div class="rp-out">
+          <div id="rSummary" class="rp-empty">Ingen rutt beräknad än.</div>
+          <div id="rmap" style="display:none;height:340px;border-radius:14px;overflow:hidden;border:1px solid var(--line);margin:14px 0"></div>
+          <div id="rTimeline"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prisuppslag (egen sida /priser): sök i price_history över alla hus → statistik + sålda. -->
+    <div id="pricepanel" style="display:none">
+      <div class="rp-head">
+        <div>
+          <h2 class="rp-h">Prisuppslag</h2>
+          <p class="rp-sub">Vad har liknande faktiskt sålts för? Statistiken bygger på verifierat sålda objekt över alla auktionshus - hela svenska andrahandsmarknaden på tvärs.</p>
+        </div>
+      </div>
+      <form id="plForm" class="plform" autocomplete="off">
+        <input class="rp-in" id="plQ" placeholder="t.ex. hjullastare, Kosta Boda, iPhone 13...">
+        <button class="rp-go plgo" type="submit">Slå upp</button>
+      </form>
+      <div id="plOut"></div>
+    </div>
+
+    <!-- Admin-gate: visas när en ej inloggad besökare öppnar en personlig sida (/priser, /rutt). -->
+    <div id="adminGate" class="agate" hidden>
+      <div class="agicon">🔒</div>
+      <h2 id="agTitle">Kräver inloggning</h2>
+      <p>Den här sidan är en personlig funktion. Logga in för att använda den.</p>
+      <div class="agacts">
+        <button class="rp-go" id="agLogin" type="button">Logga in</button>
+        <a href="/" class="aglink">Till söket</a>
+      </div>
+    </div>
+
+    <!-- Upptäck (startsidan, utan aktiv sökning/filter): fynd, konkurs, nyinkommet. -->
+    <div id="discover" hidden></div>
+    <div class="gridhead" id="gridhead" hidden><h3>⏰ Slutar snart</h3></div>
+    <div class="grid" id="grid"></div>
+  </main>
+
+  <!-- Bevakade objekt: jämför-vy (tabell) + skicka alla till ruttplaneraren. -->
+  <div class="cmpwrap" id="cmpWrap" hidden>
+    <div class="cmpsheet">
+      <div class="cmphead">
+        <h3>★ Bevakade objekt <span class="rp-n" id="cmpN">0</span></h3>
+        <div class="cmpacts">
+          <button class="cmpbtn" id="cmpToRoute" type="button">🚚 Lägg alla i rutt</button>
+          <button class="mclose" id="cmpClose" type="button">×</button>
+        </div>
+      </div>
+      <div class="cmpbody" id="cmpBody"></div>
+    </div>
+  </div>
+
+  <div class="scrim" id="scrim"></div>
+  <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+  <div class="lightbox" id="lightbox">
+    <button class="lclose" onclick="closeLightbox()">×</button>
+    <button class="lnav prev" onclick="lbStep(-1)">‹</button>
+    <img id="limg" alt="" />
+    <button class="lnav next" onclick="lbStep(1)">›</button>
+    <span class="lcount" id="lcount"></span>
+  </div>
+
+  <footer><div class="wrap foot-in">
+    <span>Allarop - aggregator &amp; mellanhand. All budgivning sker hos respektive auktionssajt.</span>
+    <span class="freshleg" title="Pricken visar hur färsk datan är">Uppdaterad:
+      <span><i class="f-green"></i>&lt;5m</span><span><i class="f-blue"></i>5-15m</span><span><i class="f-orange"></i>15-60m</span><span><i class="f-red"></i>60m+</span>
+    </span>
+    <span class="footlinks">
+      <a href="/om">Om</a><a href="/villkor">Villkor</a><a href="/integritet">Integritet</a><a href="/kontakt">Kontakt</a>
+      <a href="#" id="adminLink" class="admin-login-link">Logga in</a>
+    </span>
+    <span id="stat"></span>
+  </div></footer>
+
+  <!-- Admin-inloggning: personliga funktioner (bevakning/notiser/rutt/prisuppslag/status). -->
+  <div class="loginwrap" id="loginWrap" hidden>
+    <div class="loginbox">
+      <button class="mclose" id="loginClose" type="button">×</button>
+      <h3>Logga in</h3>
+      <p class="loginsub">Personliga funktioner (bevakning, notiser, ruttplanering, prisuppslag och driftstatus) kräver inloggning.</p>
+      <form id="loginForm" autocomplete="on">
+        <input type="password" id="loginPw" placeholder="Lösenord" autocomplete="current-password">
+        <button type="submit" id="loginGo">Logga in</button>
+      </form>
+      <div class="loginerr" id="loginErr" hidden></div>
+    </div>
+  </div>
+
+<script>
+const API = "";
+// Admin-status (sätts av boot() från /admin/session). Deklareras här så kort-renderarna
+// nedan kan villkora bevaknings-UI på den redan vid första ritningen.
+let IS_ADMIN = false, ADMIN_CONFIGURED = false;
+const fmt = n => n==null ? "-" : new Intl.NumberFormat("sv-SE").format(Math.round(n));
+// Valutavisning: symbol där den är entydig, annars kod efter beloppet.
+// SEK/tom → "40 kr", EUR → "€75", GBP → "£40", USD → "$10", annat → "24 DKK".
+const CURSYM = {EUR:"€", GBP:"£", USD:"$"};
+const money = (n,c) => {
+  if(n==null) return "-";
+  const v=fmt(n);
+  if(!c || c==="SEK") return v+" kr";
+  if(CURSYM[c]) return CURSYM[c]+v;
+  return v+" "+c;
+};
+// Aktuellt pris: vinnande bud om det finns, annars lägsta giltiga bud (utrop/startbud).
+// Aktiva objekt utan känt bud/startbud → "Öppen för bud" (aldrig "0 kr" - det finns alltid ett minsta bud).
+const priceVal = it => Number(it.current_bid) || Number(it.min_bid) || 0;
+const priceHTML = it => {
+  const p = priceVal(it);
+  if(p > 0) return money(p, it.currency);
+  return it.status === "ended" ? "Ingen försäljning" : "Öppen för bud";
+};
+// Ungefärligt SEK-värde för utländska objekt (växelkurser från /rates).
+let RATES={SEK:1};
+const sekApprox = (n,c) => {
+  if(n==null||!c||c==="SEK") return "";
+  const r=RATES[c]; if(!r) return "";
+  return "≈ "+fmt(n*r)+" kr";
+};
+const HOUSE_LABELS = {tovek:"Tovek", auctionet:"Auctionet", riksauktioner:"Riksauktioner", fabeo:"Fabeo", bukowskis:"Bukowskis", bna:"BNA", kvd:"KVD", klaravik:"Klaravik", blinto:"Blinto", psauction:"PS Auction", retrade:"Retrade", netauktion:"Netauktion", kronofogden:"Kronofogden", junora:"Junora", sajab:"Sajab", effecta:"Auktionsbyrån Effecta", effectamaskin:"Effecta Maskin", haraldssons:"Haraldssons Auktioner", frivio:"Frivio", siko:"Sikö Auktioner", upplands:"Upplands Auktionsverk", gak:"Göteborgs Auktionskammare", auktionskammaren:"Auktionskammaren", metropol:"Metropol Auktioner", pantbanken:"Pantbanken Sverige", budi:"Budi Auktioner", vaxxa:"Vaxxa", auktiona:"Auktiona", tradera:"Tradera"};
+const houseName = h => HOUSE_LABELS[h] || (h ? h.charAt(0).toUpperCase()+h.slice(1) : h);
+const PIN = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 21s-7-5.7-7-11a7 7 0 0 1 14 0c0 5.3-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>`;
+const TAG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20.6 13.4 13 21a2 2 0 0 1-2.8 0l-7-7A2 2 0 0 1 3 12.6V4a1 1 0 0 1 1-1h8.6a2 2 0 0 1 1.4.6l6.6 6.6a2 2 0 0 1 0 2.6Z"/><circle cx="7.5" cy="7.5" r="1.3"/></svg>`;
+const esc = s => (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let curQuery="", curHouses=[], curSeller="", curEnded=false, curReserve="", curCategory="", curOrt="", curPrisMin="", curPrisMax="", curSlutar="", curKonkurs=false, curSkick="";
+
+// Färskhet: hur längesen objektet uppdaterades (last_seen). Driver prickens färg.
+function freshAgeMin(s){if(!s)return null;const d=new Date(s);return isNaN(d)?null:(Date.now()-d.getTime())/60000;}
+function freshClass(s){const m=freshAgeMin(s);if(m==null)return"f-gray";if(m<5)return"f-green";if(m<15)return"f-blue";if(m<60)return"f-orange";return"f-red";}
+function freshLabel(s){const m=freshAgeMin(s);if(m==null)return"Uppdatering okänd";if(m<1)return"Uppdaterad nyss";if(m<60)return`Uppdaterad för ${Math.round(m)} min sedan`;const h=Math.floor(m/60);return`Uppdaterad för ${h} h${h>=24?` (${Math.floor(h/24)} d)`:""} sedan`;}
+function dotHTML(s){return `<span class="d ${freshClass(s)}" data-seen="${s||""}" title="${freshLabel(s)}"></span>`;}
+
+function parseEnd(s){if(!s)return null;const d=new Date(s);return isNaN(d)?null:d;}
+function countdownText(end){
+  if(!end)return{txt:"-",cls:""};
+  const ms=end-Date.now();
+  if(ms<=0)return{txt:"Avslutad",cls:"ended"};
+  const d=Math.floor(ms/864e5),h=Math.floor(ms/36e5)%24,m=Math.floor(ms/6e4)%60,s=Math.floor(ms/1e3)%60;
+  const txt=d>0?`${d}d ${h}h`:h>0?`${h}h ${m}m`:`${m}m ${String(s).padStart(2,"0")}s`;
+  return{txt,cls:ms<120000?"soon":""};
+}
+function tickAll(){
+  document.querySelectorAll("[data-end]").forEach(el=>{const{txt,cls}=countdownText(parseEnd(el.getAttribute("data-end")));el.textContent=txt;el.className="countdown "+cls;});
+  // Låt prickarna åldras live: räkna om färskhetsfärgen varje sekund.
+  document.querySelectorAll(".d[data-seen]").forEach(el=>{const s=el.getAttribute("data-seen");el.classList.remove("f-green","f-blue","f-orange","f-red","f-gray");el.classList.add(freshClass(s));el.title=freshLabel(s);});
+}
+setInterval(tickAll,1000);
+
+// Reservpris-label: grön "uppnått", grå "ej uppnått", neutral "inget". Visar VÄRDET
+// där vi har det (Junora läcker det fast sajten döljer det). "" = okänt → ingen label.
+function reserveHTML(it){
+  const s=it.reserve_status; if(!s)return"";
+  if(s==="none")return`<span class="resv none">Inget reservpris</span>`;
+  const val=it.reserve_price?` ${money(it.reserve_price,it.currency)}`:"";
+  return s==="met"
+    ? `<span class="resv met">Reservpris${val} uppnått</span>`
+    : `<span class="resv no">Reservpris${val} ej uppnått</span>`;
+}
+// Reservpris som "pill" PÅ bilden (kort). Uppnått=grön, ej uppnått=mörk (+ värdet där
+// vi har det, Junora), inget reservpris=neutral. "" = okänt → ingen pill.
+function reservePillHTML(it){
+  const s=it.reserve_status; if(!s)return"";
+  if(s==="met")return`<span class="rpill met">Reservpris uppnått</span>`;
+  if(s==="none")return`<span class="rpill none">Inget reservpris</span>`;
+  const val=it.reserve_price?` · ${money(it.reserve_price,it.currency)}`:"";
+  return `<span class="rpill no">Reservpris ej uppnått${val}</span>`;
+}
+function cardHTML(it, eager){
+  const{txt,cls}=countdownText(parseEnd(it.ends_at));
+  // Förstaradens (ovan vikningen) bilder laddas ivrigt + hög prioritet så de syns direkt;
+  // resten lat-laddas när de scrollas in.
+  const la=eager?`loading="eager" fetchpriority="high"`:`loading="lazy"`;
+  const img=it.image?`<img ${la} decoding="async" src="${it.image}" alt="" onerror="this.parentNode.innerHTML='<div class=&quot;noimg&quot;>ingen bild</div>'"/>`:`<div class="noimg">ingen bild</div>`;
+  // Underliggande hus (t.ex. Auctionet-medlem) visas bara när det skiljer sig
+  // från plattformen - klickbart för att filtrera på just det huset.
+  const sub = it.seller && it.seller!==houseName(it.house)
+    ? `<div class="cseller" onclick="event.stopPropagation();pickSeller('${esc(it.seller).replace(/'/g,"\\'")}')">${TAG}${esc(it.seller)}</div>` : "";
+  return `<article class="card" data-house="${it.house}" data-id="${it.external_id}">
+    <div class="thumb">${img}
+      <span class="src">${dotHTML(it.last_seen)}${houseName(it.house)}</span>
+      <span class="countdown ${cls}" data-end="${it.ends_at||""}">${txt}</span>
+      ${Number(it.fynd_pct)>=15?`<span class="fyndpill" title="Nuvarande pris ligger ~${it.fynd_pct}% under vad liknande gått för (${it.est_count} sålda)">🔥 ${it.fynd_pct}% under</span>`:""}
+      ${reservePillHTML(it)}
+      ${(()=>{if(!IS_ADMIN)return "";const k=it.house+"/"+it.external_id,on=WATCHED.has(k),e=String(it.external_id).replace(/'/g,"\\'");
+        return `<button class="wstar${on?" on":""}" data-w="${esc(k)}" title="${on?"Bevakas - klicka för att sluta":"Bevaka - notis vid förändringar"}" onclick="event.stopPropagation();toggleWatch('${it.house}','${e}')">${on?"★":"☆"}</button>`;})()}
+    </div>
+    <div class="cbody">
+      <h3 class="ctitle">${esc(it.title)||"Utan titel"}</h3>
+      <div class="cloc">${PIN}${esc(it.location)||"-"}${(()=>{const cp=catParts(it.category);
+        return cp?`<span class="ccat" onclick="event.stopPropagation();pickCategory('${esc(it.category)}')">${esc(cp.subLabel||cp.mainLabel)}</span>`:"";})()}${
+        it.cond==="ny"?`<span class="condchip cny" title="Säljaren beskriver objektet som nytt/oanvänt">Ny/oanvänd</span>`
+        :it.cond==="otestad"?`<span class="condchip cot" title="Säljaren har inte testat objektet">Ej testad</span>`:""}${budChipHTML(it)}</div>
+      ${sub}
+      <div class="pricerow">
+        <div class="bid"><div class="lbl">${it.current_bid?"Bud":(priceVal(it)>0?(it.house==="vaxxa"?"Köp nu":"Lägsta bud"):"Bud")}</div><div class="val num">${priceHTML(it)}</div></div>
+        ${it.total_basis==="external"
+          ? `<div class="total"><div class="feetag">+ avgift</div></div>`
+          : it.total_basis==="estimate"
+          ? `<div class="total"><div class="lbl">Ca total inkl. avgift</div><div class="val num est">≈ ${money(it.total_price,it.currency)}</div></div>`
+          : `<div class="total"><div class="lbl">Totalt inkl. avgift</div><div class="val num">${money(it.total_price,it.currency)}</div>${sekApprox(it.total_price,it.currency)?`<div class="sek">${sekApprox(it.total_price,it.currency)}</div>`:""}</div>`}
+      </div>
+    </div></article>`;
+}
+const PAGE=48;
+let curSort="ending", curOffset=0, loading=false, hasMore=true;
+
+function attachCards(cards){
+  cards.forEach((c,i)=>{
+    c.style.transitionDelay=(Math.min(i,18)*26)+"ms";
+    requestAnimationFrame(()=>requestAnimationFrame(()=>c.classList.add("in")));
+    c.addEventListener("click",()=>openDetail(c.dataset.house,c.dataset.id));
+    // Förladda detaljen vid ihållande hover (>120ms = verklig avsikt, ej snabb svep).
+    let ht;
+    c.addEventListener("mouseenter",()=>{ht=setTimeout(()=>prefetchDetail(c.dataset.house,c.dataset.id),120);});
+    c.addEventListener("mouseleave",()=>clearTimeout(ht));
+  });
+}
+function renderCards(items, append){
+  const grid=document.getElementById("grid");
+  if(!append){
+    if(!items.length){grid.innerHTML=`<div class="empty" style="grid-column:1/-1">Inga objekt - prova en annan sökning.</div>`;document.getElementById("count").innerHTML=`<b>0</b> objekt`;return;}
+    grid.innerHTML="";
+  }
+  const start=grid.querySelectorAll(".card").length;
+  // Bara första sidans översta rader (ej vid oändlig-scroll-påfyllning) laddas ivrigt.
+  grid.insertAdjacentHTML("beforeend", items.map((it,i)=>cardHTML(it, !append && i<8)).join(""));
+  tickAll();
+  attachCards([...grid.querySelectorAll(".card")].slice(start));
+  document.getElementById("count").innerHTML=`<b>${grid.querySelectorAll(".card").length}</b> objekt`;
+}
+// Smart sök-chips: visar hur sökningen breddades (synonymer + relaterat). Resultaten
+// är nivårankade: ordet i titeln → synonym/fuzzy → relaterade föremål. Kategori-
+// förslagen är KLICKBARA (sätter kategorifiltret) - de matchar inte automatiskt.
+function sxCatLabel(key){
+  for(const m of (CATS||[])){for(const s of m.subs||[]){if(`${m.key}/${s.key}`===key)return `${m.label} › ${s.label}`;}if(m.key===key)return m.label;}
+  return key;
+}
+// Kategori-nyckel → {mainKey, mainLabel, subLabel} för chips på kort/detaljvy.
+function catParts(key){
+  if(!key)return null;
+  const mk=key.split("/")[0];
+  const m=(CATS||[]).find(c=>c.key===mk);
+  const s=m?.subs?.find(x=>`${mk}/${x.key}`===key);
+  return {mainKey:mk, mainLabel:m?.label||mk, subLabel:s?.label||null};
+}
+// Klick på kategori (kort/detalj) → stäng ev. modal + filtrera via befintliga pickCategory.
+function gotoCategory(key){
+  if(typeof closeModal==="function")closeModal();
+  pickCategory(key);
+}
+// "Visa liknande till salu": första bärande titelordet som sökfråga (smarta sökningen
+// breddar med synonymer/relaterat) + objektets kategori som filter.
+function showSimilar(title,catKey){
+  if(typeof closeModal==="function")closeModal();
+  const tok=(title||"").split(/[^A-Za-zÅÄÖåäöÉé]+/).find(t=>t.length>=4)||"";
+  document.getElementById("q").value=tok;curQuery=tok;
+  if(catKey){curCategory=catKey;catButtonLabel();renderCats();}
+  load();
+}
+function renderSmartX(x){
+  const el=document.getElementById("smartx");
+  const has=x&&((x.synonyms||[]).length||(x.related||[]).length||(x.categories||[]).length);
+  if(!has){el.hidden=true;el.innerHTML="";return;}
+  const syn=(x.synonyms||[]).map(t=>`<span class="sxchip">${esc(t)}</span>`).join("");
+  // Relaterat = KLICKBARA förslag (ingår ej i resultaten - klick söker på just den termen).
+  const rel=(x.related||[]).map(t=>`<button class="sxchip rel sxrel" data-term="${esc(t)}" title="Sök på ${esc(t)}">${esc(t)}</button>`).join("");
+  const cats=(x.categories||[]).map(k=>`<button class="sxchip sxcat" data-cat="${esc(k)}">${esc(sxCatLabel(k))}</button>`).join("");
+  el.innerHTML=`${syn?`<span class="sxlbl">Söker även:</span>${syn}`:""}`+
+    `${rel?`<span class="sxlbl"${syn?' style="margin-left:6px"':''}>Kanske:</span>${rel}`:""}`+
+    `${cats?`<span class="sxlbl" style="margin-left:6px">Filtrera:</span>${cats}`:""}`;
+  el.querySelectorAll(".sxcat").forEach(b=>b.addEventListener("click",()=>pickCategory(b.dataset.cat)));
+  el.querySelectorAll(".sxrel").forEach(b=>b.addEventListener("click",()=>searchFor(b.dataset.term)));
+  el.hidden=false;
+}
+/** Sök på en specifik term (relaterat-förslag): sätt sökrutan + kör om söken. */
+function searchFor(term){
+  document.getElementById("q").value=term;curQuery=term;
+  window.scrollTo({top:0,behavior:"smooth"});load();
+}
+// reset=true → ny sökning/sortering (ersätt). reset=false → nästa sida (lägg till).
+// reqSeq: en NY sökning (reset) supersederar en pågående - annars blockerade "loading"-
+// vakten en andra sökning medan den förstas smarta LLM-expansion (några sek) var i luften
+// ("sök X sen Y gjorde inget"). Vakten gäller bara oändlig scroll (reset=false).
+let reqSeq=0;
+async function load(reset=true){
+  if(reset){reqSeq++;} else if(loading){return;}
+  const myseq=reqSeq; loading=true;
+  const grid=document.getElementById("grid");
+  // Startsidan (rent läge): visa upptäck-sektioner. Gridden + sektionerna hämtas PARALLELLT och
+  // renderas i SAMMA pass → allt kommer in samtidigt utan pop-in/hopp. Skelett reserverar plats.
+  const clean=reset&&discoverClean();
+  const dEl=document.getElementById("discover"),gh=document.getElementById("gridhead");
+  gh.hidden=!clean; dEl.hidden=!clean;
+  if(reset){
+    curOffset=0;hasMore=true;
+    grid.innerHTML=Array.from({length:10},()=>`<div class="skeleton"></div>`).join("");
+    // Upptäck-sektionerna hämtas OBEROENDE och fyller sitt SKELETT när de är klara → ingen del
+    // väntar på en annan (skelett reserverar plats så inget hoppar). Sektionerna är snabba nu.
+    if(clean&&!discoverLoaded){
+      dEl.innerHTML=discoverSkeleton();
+      loadDiscoverData().then(disc=>{if(myseq===reqSeq){renderDiscover(disc);discoverLoaded=true;}}).catch(()=>{});
+    }
+  }
+  const p={limit:PAGE,offset:curOffset,sort:curSort};
+  if(curQuery)p.q=curQuery; if(curHouses.length)p.house=curHouses.join(","); if(curSeller)p.seller=curSeller; if(curEnded)p.ended=1; if(curReserve)p.reserve=curReserve; if(curCategory)p.category=curCategory; if(curOrt)p.ort=curOrt; if(curPrisMin)p.pris_min=curPrisMin; if(curPrisMax)p.pris_max=curPrisMax; if(curSlutar)p.slutar=curSlutar; if(curKonkurs)p.konkurs=1;if(curSkick)p.skick=curSkick;
+  try{
+    const d=await (await fetch(`${API}/items?`+new URLSearchParams(p))).json();
+    if(myseq!==reqSeq)return; // en nyare sökning har tagit över → släng detta svar
+    const items=d.items||[];
+    renderCards(items, !reset);
+    if(reset)renderSmartX(curQuery?d.expansion:null);
+    curOffset+=items.length; hasMore=items.length===PAGE;
+  }catch(e){ if(reset&&myseq===reqSeq)grid.innerHTML=`<div class="empty" style="grid-column:1/-1">Kunde inte nå API:t (${e}).</div>`; }
+  finally{ if(myseq===reqSeq)loading=false; }
+}
+// Oändlig scroll: hämta nästa sida när man närmar sig botten.
+window.addEventListener("scroll",()=>{
+  if(hasMore && !loading && window.innerHeight+window.scrollY >= document.body.offsetHeight-800) load(false);
+},{passive:true});
+// Custom sorterings-dropdown (matchar designen; native <select> går ej att styla).
+const sortDD=document.getElementById("sortDD"),sortBtn=document.getElementById("sortBtn"),sortMenu=document.getElementById("sortMenu");
+function closeSort(){sortDD.classList.remove("open");sortBtn.setAttribute("aria-expanded","false");}
+sortBtn.addEventListener("click",e=>{e.stopPropagation();const open=!sortDD.classList.contains("open");sortDD.classList.toggle("open",open);sortBtn.setAttribute("aria-expanded",open);});
+sortMenu.querySelectorAll(".sortopt").forEach(o=>o.addEventListener("click",()=>{
+  if(curSort!==o.dataset.sort){curSort=o.dataset.sort;document.getElementById("sortLabel").textContent=o.textContent;
+    sortMenu.querySelectorAll(".sortopt").forEach(x=>x.classList.toggle("on",x===o));load();}
+  closeSort();
+}));
+document.addEventListener("click",e=>{if(!sortDD.contains(e.target))closeSort();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSort();});
+
+// Lätt bakgrundsuppdatering: hämtar samma vy och uppdaterar bud/total/sluttid/
+// färskhetsprick PÅ PLATS (ingen ommålning), så live-bud och soft-close-förlängningar
+// syns utan att man tappar scroll. Hoppar över medan en annons är öppen.
+async function refreshInPlace(){
+  if(document.getElementById("modal").classList.contains("open"))return;
+  if(document.getElementById("lightbox").classList.contains("open"))return;
+  if(!document.querySelectorAll(".card").length)return;
+  const p={limit:Math.max(curOffset,PAGE),offset:0,sort:curSort}; if(curQuery)p.q=curQuery; if(curHouses.length)p.house=curHouses.join(","); if(curSeller)p.seller=curSeller; if(curEnded)p.ended=1; if(curReserve)p.reserve=curReserve; if(curCategory)p.category=curCategory; if(curOrt)p.ort=curOrt; if(curPrisMin)p.pris_min=curPrisMin; if(curPrisMax)p.pris_max=curPrisMax; if(curSlutar)p.slutar=curSlutar; if(curKonkurs)p.konkurs=1;if(curSkick)p.skick=curSkick;
+  let d; try{d=await (await fetch(`${API}/items?`+new URLSearchParams(p))).json();}catch{return;}
+  const map=new Map((d.items||[]).map(it=>[`${it.house}/${it.external_id}`,it]));
+  document.querySelectorAll(".card").forEach(card=>{
+    const it=map.get(`${card.dataset.house}/${card.dataset.id}`); if(!it)return;
+    const vals=card.querySelectorAll(".pricerow .val");
+    if(vals[0])vals[0].textContent=money(it.current_bid??it.min_bid,it.currency);
+    if(vals[1])vals[1].textContent=money(it.total_price,it.currency);
+    const bl=card.querySelector(".bid .lbl"); if(bl)bl.textContent="Bud"+(it.current_bid?"":" / utrop");
+    const cd=card.querySelector("[data-end]"); if(cd&&it.ends_at)cd.setAttribute("data-end",it.ends_at);
+    const dot=card.querySelector(".src .d"); if(dot)dot.setAttribute("data-seen",it.last_seen||"");
+    // Reservpris-status kan ändras live (t.ex. reservpris uppnås) - håll pillen i synk med
+    // detaljvyn, annars visar kortet stale status tills full omladdning.
+    const thumb=card.querySelector(".thumb");
+    if(thumb){const old=thumb.querySelector(".rpill");if(old)old.remove();const rp=reservePillHTML(it);if(rp)thumb.insertAdjacentHTML("beforeend",rp);}
+  });
+  tickAll();
+}
+setInterval(refreshInPlace,20000);
+
+let GAL=[], GIDX=0, PS_CUR=null;
+
+// "Vad liknande har gått för" - omrenderbart block (så AI-granskningen kan uppdatera det).
+// aiStats = omräknad statistik över samples som AI:n INTE underkänt (null = ej granskad).
+function psInner(s,aiStats,aiAvailable,busy){
+  // Publikt saknas s.samples (källorna döljs av servern) - då visas bara aggregatet.
+  const smp=s.samples||[];
+  const st=aiStats||s,verified=smp.some(x=>x.ai&&x.ai!=="unknown");
+  const badge=x=>x.ai==="same"?` · <span class="aiok">✓ AI: samma typ</span>`:x.ai==="different"?` · <span class="aibad">✗ AI: ${esc(x.aiReason||"annan typ")}</span>`:"";
+  const cur=s.current;
+  // Statistik-delen: 0 kvar efter AI → ingen stapel/inget snitt (hellre inget än fel);
+  // 1 kvar → enda priset i klartext; annars stapel min/snitt/max som vanligt.
+  let statHTML;
+  if(aiStats&&aiStats.count===0){
+    statHTML=`<div class="ainote">AI-bildgranskningen underkände alla ${smp.length} träffar - ingen jämförbar såld hittades, så ingen prisindikation visas.</div>`;
+  }else if(aiStats&&aiStats.count===1){
+    statHTML=`<div class="psnote"><span class="psdot"></span>1 bekräftad jämförbar såld: <b>${money(st.avg,"SEK")}</b>${cur!=null?` · detta objekt: <b>${money(cur,"SEK")}</b>`:""}</div>`;
+  }else{
+    const rng=Math.max(st.max-st.min,1),p=v=>Math.max(2,Math.min(98,((v-st.min)/rng)*100));
+    const cmp=cur==null?"":cur>st.max?"högre än alla tidigare sålda":cur<st.min?"lägre än alla tidigare":cur>=st.avg?"över snittet":"under snittet";
+    statHTML=`<div class="psbar"><div class="psmark psavg" style="left:${p(st.avg)}%"></div>${cur!=null?`<div class="psmark pscur" style="left:${p(cur)}%"></div>`:""}</div>
+    <div class="pslabels"><span>${money(st.min,"SEK")}</span><span class="c">snitt ${money(st.avg,"SEK")}</span><span>${money(st.max,"SEK")}</span></div>
+    ${cur!=null?`<div class="psnote"><span class="psdot"></span>Detta objekt: <b>${money(cur,"SEK")}</b> · ${cmp}</div>`:""}`;
+  }
+  // Källistan (jämförbara sålda + AI-granskning) renderas BARA när samples finns = admin.
+  // Publikt har servern strippat samples, så bara aggregatet ovan visas (ingen källa).
+  const detailsHTML=smp.length?`
+    <details class="psdet" ${verified?"open":""}><summary>Visa jämförbara sålda${s.count>smp.length?` (${smp.length} av ${s.count})`:` (${s.count})`}</summary>
+      <div class="pslist">${smp.map(x=>`<div class="psitem${x.ai==="different"?" psx":""}">${x.image?`<img class="psthumb" loading="lazy" src="${esc(x.image)}" alt="" onerror="this.style.display='none'">`:`<div class="psthumb ph" aria-hidden="true">▫</div>`}<div class="psbody"><div class="pstop"><span class="pst" title="${esc(x.title)}">${esc(x.title)}</span><span class="psp num">${x.fx?"≈ ":""}${money(x.price,"SEK")}</span></div>${x.desc?`<div class="psd">${esc(x.desc)}</div>`:""}<div class="psh">${houseName(x.house)} · ${(x.endedAt||"").slice(0,10)} · ${x.match}% likhet${x.fx?` · omräknat från ${esc(x.fx)}`:""}${badge(x)}</div></div></div>`).join("")}</div>
+    </details>
+    ${aiAvailable?`<button class="aibtn" onclick="aiVerify()" ${busy?"disabled":""}>${busy?"AI granskar bilderna…":verified?"AI-granska igen":"AI-granska träffarna (bilder)"}</button>`:""}
+    ${verified&&aiStats&&aiStats.count>=2?`<div class="ainote">Snittet räknas på de ${st.count} jämförelser AI:n inte underkänt (av ${smp.length} granskade).</div>`:""}`:"";
+  return `
+    <div class="pshead">Vad liknande har gått för<span class="pscount">${aiStats?`AI-granskad · ${st.count} kvar`:`${s.count} jämförbara`}</span></div>
+    ${statHTML}
+    ${s.loose?`<div class="ainote">Bredare matchning - exakt modell fanns inte i historiken.</div>`:""}
+    ${detailsHTML}`;
+}
+
+// AI-bildgranskning: be servern jämföra målets bild mot varje träffs bild (gratis
+// vision-modell via OpenRouter; verdikt cachas). Tar 10-30 s första gången.
+let PS_DATA=null; // senaste stats-objektet (för omrendering under/efter AI-granskning)
+async function aiVerify(){
+  const box=document.getElementById("psbox");
+  if(!box||!PS_CUR)return;
+  if(PS_DATA)box.innerHTML=psInner(PS_DATA,null,true,true);
+  try{
+    const r=await fetch(`${API}/price-stats?house=${encodeURIComponent(PS_CUR.house)}&id=${encodeURIComponent(PS_CUR.id)}&verify=1`);
+    const d=await r.json();
+    if(d&&d.stats){PS_DATA=d.stats;box.innerHTML=psInner(d.stats,d.aiStats||null,true,false);}
+    else if(PS_DATA)box.innerHTML=psInner(PS_DATA,null,true,false);
+  }catch{if(PS_DATA)box.innerHTML=psInner(PS_DATA,null,true,false);}
+}
+function closeModal(){document.getElementById("modal").classList.remove("open");document.getElementById("scrim").classList.remove("open");}
+function setImg(i){
+  if(!GAL.length)return; GIDX=(i+GAL.length)%GAL.length;
+  const im=document.getElementById("vimg"); if(im){im.src=GAL[GIDX];im.style.opacity="";}
+  const c=document.getElementById("vcount"); if(c)c.textContent=`${GIDX+1} / ${GAL.length}`;
+  document.querySelectorAll("#vthumbs img").forEach((t,i2)=>t.classList.toggle("on",i2===GIDX));
+}
+function vStep(d){setImg(GIDX+d);}
+function openLightbox(){
+  if(!GAL.length)return;
+  const lb=document.getElementById("lightbox");
+  document.getElementById("limg").src=GAL[GIDX];
+  document.getElementById("lcount").textContent=`${GIDX+1} / ${GAL.length}`;
+  lb.classList.add("open");
+}
+function closeLightbox(){document.getElementById("lightbox").classList.remove("open");}
+function lbStep(d){setImg(GIDX+d);document.getElementById("limg").src=GAL[GIDX];document.getElementById("lcount").textContent=`${GIDX+1} / ${GAL.length}`;}
+
+// Fordonsuppgifter (biluppgifter.se-cachen via regnr) - visas bara när data finns.
+function vehicleHTML(v){
+  if(!v)return "";
+  const row=(l,val,warn)=>val==null||val===""?"":`<div class="row"><span>${l}</span><span class="v num"${warn?' style="color:#c0392b;font-weight:600"':""}>${val}</span></div>`;
+  const kr=n=>n==null?null:money(n,"SEK");
+  const range=(a,b)=>a==null?null:(b!=null&&b!==a?`${kr(a)} - ${kr(b)}`:kr(a));
+  const ja=b=>b==null?null:(b?"Ja":"Nej");
+  return `<div class="breakdown">
+    <div class="cap">Fordonsuppgifter · ${esc(v.regnr)}</div>
+    ${v.summary?`<div class="row"><span style="color:var(--ink-faint)">${esc(v.summary)}</span><span class="v"></span></div>`:""}
+    ${row("Status",v.status,v.status&&/avställd/i.test(v.status))}
+    ${row("Mätarställning (besiktning)",v.odometerMil!=null?`${Number(v.odometerMil).toLocaleString("sv-SE")} mil`:null)}
+    ${row("Senast besiktigad",v.inspectedAt)}
+    ${row("Besiktigas senast",v.inspectBy)}
+    ${row("Antal ägare",v.ownerCount)}
+    ${row("Senaste ägarbyte",v.lastOwnerChange)}
+    ${row("Årlig skatt",v.taxSekPerYear!=null?`${kr(v.taxSekPerYear)}/år`:null)}
+    ${row("Kreditköp",ja(v.onCredit),v.onCredit===true)}
+    ${row("Leasad",ja(v.leased),v.leased===true)}
+    ${row("Import",ja(v.imported))}
+    ${row("Värdering (privat)",range(v.privatePriceMin,v.privatePriceMax))}
+    ${row("Värdering (bilhandlare)",range(v.dealerPriceMin,v.dealerPriceMax))}
+  </div>
+  <div class="xnote">Fordonsdata och värdering från <a href="${esc(v.sourceUrl)}" target="_blank" rel="noopener">biluppgifter.se</a> (Transportstyrelsen). Värderingen bygger på uppskattad mätarställning.</div>`;
+}
+
+// Förladdning vid hover: hämta objektets detaljdata + värm galleribilderna i förväg, så
+// modalen öppnas direkt när man klickar. Cachas kort (45s) och deduplicerar hover+klick.
+const DETAIL_CACHE=new Map(); // key -> {t, p:Promise<data|null>}
+function prefetchDetail(house,id){
+  const key=house+"/"+id, now=Date.now(), c=DETAIL_CACHE.get(key);
+  if(c && now-c.t<45000) return;
+  if(DETAIL_CACHE.size>80) DETAIL_CACHE.clear();
+  const p=fetch(`${API}/items/${house}/${id}`).then(r=>r.json()).then(d=>{
+    (d.media||[]).filter(m=>m.kind==="image").slice(0,4).forEach(m=>{const im=new Image();im.src=m.url;});
+    return d;
+  }).catch(()=>null);
+  DETAIL_CACHE.set(key,{t:now,p});
+}
+async function openDetail(house,id){
+  const sheet=document.getElementById("sheet"),mo=document.getElementById("modal"),sc=document.getElementById("scrim");
+  GAL=[];GIDX=0; sc.classList.add("open");mo.classList.add("open");
+  sheet.innerHTML=`<button class="mclose" onclick="closeModal()">×</button><div class="vinfo" style="flex:1"><div class="vhouse">Laddar…</div></div>`;
+  try{
+    // Använd förladdad data om den finns och är färsk, annars hämta nu.
+    const ck=house+"/"+id, pc=DETAIL_CACHE.get(ck);
+    let d = (pc && Date.now()-pc.t<45000) ? await pc.p : null;
+    if(!d){ const r=await fetch(`${API}/items/${house}/${id}`); d=await r.json(); }
+    const it=d.item,media=d.media||[],bids=d.bids||[];
+    CUR_DETAIL={house,id,title:it.title||"",location:it.location||""};
+    GAL=media.filter(m=>m.kind==="image").map(m=>m.url);
+    const bid=Number(it.current_bid??it.min_bid??0),total=Number(it.total_price??0),avg=Math.max(total-bid,0);
+    const{txt}=countdownText(parseEnd(it.ends_at));
+    const cc=it.currency;
+    // "Vad har liknande gått för?" - hämta prisstatistik (icke-blockerande fel).
+    let PSR=null; try{PSR=await (await fetch(`${API}/price-stats?house=${encodeURIComponent(house)}&id=${encodeURIComponent(id)}`)).json();}catch{}
+    PS_CUR={house,id};PS_DATA=PSR&&PSR.stats?PSR.stats:null;
+    const statsHTML=PS_DATA?`<div class="pstats" id="psbox">${psInner(PS_DATA,null,PSR.aiAvailable,false)}</div>`:"";
+    // Auto-AI-granskning: körs i bakgrunden efter render (cache-först → oftast gratis/
+    // omedelbar; nya par ~0,2 öre/st). Knappen finns kvar för manuell omkörning.
+    if(PS_DATA&&PSR.aiAvailable)setTimeout(()=>{if(PS_CUR&&PS_CUR.house===house&&PS_CUR.id===id)aiVerify();},80);
+    const bidsHTML=bids.length?bids.map(b=>`<div class="bidrow"><span class="amt num">${money(b.value,cc)}${b.type==="auto"?'<span class="auto">auto</span>':""}</span><span class="t">${b.bidder_name?b.bidder_name+" · ":""}${(b.created_at||"").replace("T"," ").slice(0,16)}</span></div>`).join(""):`<div class="bidrow"><span class="t">Inga bud ännu - utrop ${money(it.min_bid,cc)}.</span></div>`;
+    const hasMany=GAL.length>1;
+    const viewer=`<div class="viewer">
+      <div class="vmain" onclick="openLightbox()">
+        ${hasMany?`<button class="vnav prev" onclick="event.stopPropagation();vStep(-1)">‹</button>`:""}
+        ${GAL.length?`<img id="vimg" src="${GAL[0]}" onerror="this.style.opacity=.2"/>`:`<div class="noimg" style="color:var(--ink-faint)">ingen bild</div>`}
+        ${hasMany?`<button class="vnav next" onclick="event.stopPropagation();vStep(1)">›</button>`:""}
+        ${hasMany?`<span class="vcount" id="vcount">1 / ${GAL.length}</span>`:""}
+      </div>
+      ${hasMany?`<div class="vthumbs" id="vthumbs">${GAL.map((u,i)=>`<img src="${u}" class="${i===0?'on':''}" onclick="setImg(${i})" onerror="this.style.display='none'"/>`).join("")}</div>`:""}
+    </div>`;
+    sheet.innerHTML=`<button class="mclose" onclick="closeModal()">×</button>
+      ${viewer}
+      <div class="vinfo">
+        <div class="vhouse">${dotHTML(it.last_seen)}${houseName(house)}${it.seller&&it.seller!==houseName(house)?` · ${esc(it.seller)}`:""} · ${txt}</div>
+        <h2 class="dtitle">${it.title||"Utan titel"}</h2>
+        <div class="dmeta"><span>${it.location||"-"}</span><span>Slutar ${(it.ends_at||"").replace("T"," ").slice(0,16)||"-"}</span><span>${it.bid_count||0} bud</span></div>
+        ${(()=>{const cp=catParts(it.category);if(!cp)return "";
+          const safeTitle=esc(it.title||"").replace(/'/g,"\\'");
+          return `<div class="dcats">
+            <button class="dcat" onclick="gotoCategory('${cp.mainKey}')">${esc(cp.mainLabel)}</button>
+            ${cp.subLabel?`<button class="dcat" onclick="gotoCategory('${esc(it.category)}')">${esc(cp.subLabel)}</button>`:""}
+            <button class="dcat sim" onclick="showSimilar('${safeTitle}','${esc(it.category)}')">Visa liknande till salu</button>
+          </div>`;})()}
+        <div>${reserveHTML(it)}</div>
+        ${priceVal(it)===0 && it.status!=="ended"
+          ? `<div class="breakdown"><div class="cap">Aktuellt pris</div><div class="row tot"><span>Öppen för bud</span><span class="v num">-</span></div>
+          ${house==="vaxxa"&&Number(it.fee_value)>0?`<div class="row"><span>Serviceavgift (från)</span><span class="v num">${money(Number(it.fee_value),cc)} exkl moms</span></div>`:""}</div>
+        <div class="xnote">${house==="vaxxa"&&Number(it.fee_value)>0
+          ?`Inga bud än - budgivningen startar fritt (inget utrop). Serviceavgiften ovan gäller vid lågt bud och växer med budet; + 25 % moms på avgiften${Number(it.vat_value)===25?" samt 25 % moms på budet":""}.`
+          :"Inga bud än - lägg första budet hos auktionshuset (avgift tillkommer)."}</div>`
+          : it.total_basis==="external"
+          ? `<div class="breakdown">
+          <div class="cap">Aktuellt pris</div>
+          <div class="row tot"><span>${it.current_bid?"Nuvarande bud":(bid>0?"Startbud":"Inga bud än")}</span><span class="v num">${bid>0?money(bid,cc)+(sekApprox(bid,cc)?`<div class="sek" style="text-align:right">${sekApprox(bid,cc)}</div>`:""):"-"}</span></div>
+        </div>
+        <div class="xnote">${({retrade:"+ auktionsavgift &amp; moms tillkommer (varierar, visas vid budgivning) samt fast betalningsavgift 250 kr.",budi:"Budet visas exkl. moms. Serviceavgift (visas vid budgivning hos Budi) + 25 % moms tillkommer.",vaxxa:"Budet visas exkl. moms (moms 0 % vid momsfri, annars 25 %). Serviceavgift tillkommer - se objektet hos Vaxxa."})[house]||"+ auktionsavgift &amp; moms tillkommer (visas hos auktionshuset)."}</div>`
+          : it.total_basis==="estimate"
+          ? `<div class="breakdown">
+          <div class="cap">Ungefärligt totalpris</div>
+          <div class="row"><span>${it.current_bid?"Nuvarande bud":"Utropspris"}</span><span class="v num">${money(bid,cc)}</span></div>
+          <div class="row"><span>Slagavgift (uppskattad)</span><span class="v num">≈ ${money(Number(it.fee_value??0),cc)}</span></div>
+          ${(()=>{const moms=Math.max(total-bid-Number(it.fee_value??0),0);return moms>0?`<div class="row"><span>Moms på bud</span><span class="v num">${money(moms,cc)}</span></div>`:"";})()}
+          <div class="row tot"><span>Ca att betala</span><span class="v num est">≈ ${money(total,cc)}</span></div>
+        </div>
+        <div class="xnote">Ungefärlig total. Slagavgiften är uppskattad ur reservationspriset (deterministiskt mönster) - exakt avgift visas vid budgivning hos Junora.</div>`
+          : `<div class="breakdown">
+          <div class="cap">Faktiskt totalpris</div>
+          <div class="row"><span>${it.current_bid?"Nuvarande bud":(house==="vaxxa"?"Köp nu-pris":"Utropspris")}</span><span class="v num">${money(bid,cc)}</span></div>
+          ${(()=>{const fee=Number(it.fee_value??0),moms=Math.max(total-bid-fee,0);
+            return fee>0
+              ? `<div class="row"><span>${house==="vaxxa"?"Serviceavgift":"Slagavgift"}</span><span class="v num">${money(fee,cc)}</span></div><div class="row"><span>Moms${it.vat_value?"":" (på avgift)"}</span><span class="v num">${money(moms,cc)}</span></div>`
+              : `<div class="row"><span>Avgift + moms</span><span class="v num">${money(avg,cc)}</span></div>`;})()}
+          <div class="row tot"><span>Att betala</span><span class="v num">${money(total,cc)}${sekApprox(total,cc)?`<div class="sek" style="text-align:right">${sekApprox(total,cc)}</div>`:""}</span></div>
+        </div>
+        ${cc&&cc!=="SEK"?`<div class="xnote">Utländskt objekt - vid import till Sverige kan införselmoms och tull tillkomma utöver totalen.</div>`:""}`}
+        ${(()=>{ // Fynd-banner: samma tillförlitlighetskrav som kort-pillen (tät spridning,
+          // under 25:e percentilen). Bara SEK-objekt (utländsk valuta hanteras på kortet).
+          if(cc&&cc!=="SEK")return ""; const est=Number(it.est_value_sek),n=Number(it.est_count),
+            p25=Number(it.est_p25),p75=Number(it.est_p75),cur=Number(it.current_bid||it.min_bid||0);
+          if(!(n>=4&&est>0&&p25>0&&p75<=p25*2.5&&cur>0&&cur<p25))return ""; const pct=Math.round((est-cur)/est*100); if(pct<15)return "";
+          return `<div class="fyndbanner">🔥 <b>Möjligt fynd</b> - nuvarande pris ligger ~${pct}% under vad liknande gått för (uppskattat ~${money(est,"SEK")}, ${n} sålda). Priset kan stiga innan avslut.</div>`;})()}
+        ${vehicleHTML(d.vehicle)}
+        ${statsHTML}
+        ${it.description?`<div class="ddesc">${/<[a-z!\/]/i.test(it.description)?it.description:esc(it.description).replace(/\n/g,"<br>")}</div>`:""}
+        <div id="vissim"></div>
+        <div class="seclbl">Budhistorik</div>
+        <div class="bidlist">${bidsHTML}</div>
+        <a class="cta" href="${it.source_url}" target="_blank" rel="noopener">Buda hos ${houseName(house)} →</a>
+        ${(()=>{if(!IS_ADMIN)return "";const k=house+"/"+id,on=WATCHED.has(k),e=String(id).replace(/'/g,"\\'");
+          return `<button class="rp-addbtn wbtn${on?" added":""}" data-w="${esc(k)}" onclick="toggleWatch('${house}','${e}')">${on?"★ Bevakas - du får notis vid förändringar":"☆ Bevaka objektet"}</button>`;})()}
+        <button class="rp-addbtn" onclick="addCurrentToRoute()">🚚 Lägg till i rutt</button>
+      </div>`;
+    // Visuellt lika objekt (bild-embeddings) - laddas i bakgrunden, injiceras om träffar finns.
+    loadVisualSimilar(house, id);
+  }catch(e){sheet.innerHTML=`<button class="mclose" onclick="closeModal()">×</button><div class="vinfo"><div class="vhouse">Fel</div><p>Kunde inte ladda objektet.</p></div>`;}
+}
+
+// Hämtar visuellt lika aktiva objekt (DINOv2) och renderar en miniatyr-rad i detaljvyn.
+async function loadVisualSimilar(house,id){
+  try{
+    const r=await fetch(`${API}/similar-visual?house=${encodeURIComponent(house)}&id=${encodeURIComponent(id)}&limit=12`);
+    const d=await r.json();
+    const box=document.getElementById("vissim");
+    if(!box||!d.items||!d.items.length)return;
+    // Bara om vi fortfarande visar samma objekt (användaren kan ha bytt).
+    if(PS_CUR&&(PS_CUR.house!==house||PS_CUR.id!==id))return;
+    box.innerHTML=`<div class="seclbl">Visuellt lika till salu <span class="vsn">${d.items.length}</span></div>
+      <div class="vsrow">${d.items.map(x=>`
+        <button class="vscard" onclick="openDetail('${x.house}','${esc(String(x.external_id)).replace(/'/g,"\\'")}')" title="${esc(x.title||"")} · ${Math.round(x.score*100)}% lik">
+          ${x.image?`<img loading="lazy" src="${esc(x.image)}" alt="" onerror="this.style.opacity=.15">`:`<div class="vsnoimg">▫</div>`}
+          <span class="vshouse">${houseName(x.house)}</span>
+        </button>`).join("")}</div>`;
+  }catch{}
+}
+document.getElementById("scrim").addEventListener("click",closeModal);
+document.getElementById("lightbox").addEventListener("click",e=>{if(e.target.id==="lightbox")closeLightbox();});
+document.addEventListener("keydown",e=>{
+  const lbOpen=document.getElementById("lightbox").classList.contains("open");
+  const moOpen=document.getElementById("modal").classList.contains("open");
+  if(e.key==="Escape"){lbOpen?closeLightbox():closeModal();}
+  else if(e.key==="ArrowLeft"){if(lbOpen)lbStep(-1);else if(moOpen)vStep(-1);}
+  else if(e.key==="ArrowRight"){if(lbOpen)lbStep(1);else if(moOpen)vStep(1);}
+});
+document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();curQuery=document.getElementById("q").value.trim();load();});
+// Datadrivet källfilter (fler-val): byggs ur /houses så nya hus dyker upp av sig
+// själva. En dropdown med kryssrutor + antal skalar till 20+ hus utan att bli rörigt.
+let SRC_HOUSES=[];
+const srcDD=document.getElementById("srcDD"),srcBtn=document.getElementById("srcBtn"),
+      srcMenu=document.getElementById("srcMenu"),srcList=document.getElementById("srcList"),
+      srcLabel=document.getElementById("srcLabel"),srcBadge=document.getElementById("srcBadge"),
+      srcClear=document.getElementById("srcClear"),srcSearch=document.getElementById("srcSearch"),
+      srcSearchWrap=document.getElementById("srcSearchWrap");
+
+function renderSources(houses){
+  SRC_HOUSES=houses;
+  // Sök-fält bara när det blir många hus (annars onödigt).
+  srcSearchWrap.hidden = houses.length<=8;
+  const q=(srcSearch.value||"").toLowerCase().trim();
+  const list=houses.filter(h=>!q||houseName(h.house).toLowerCase().includes(q));
+  srcList.innerHTML = list.length ? list.map(h=>{
+    const on=curHouses.includes(h.house);
+    return `<button class="srcopt${on?" on":""}" data-src="${esc(h.house)}" role="menuitemcheckbox" aria-checked="${on}">
+      <span class="box"></span><span class="nm">${houseName(h.house)}</span><span class="cnt">${fmt(h.item_count)}</span></button>`;
+  }).join("") : `<div class="srcempty">Ingen källa matchar.</div>`;
+  updateSrcButton();
+}
+function updateSrcButton(){
+  const n=curHouses.length;
+  srcLabel.textContent = n===0?"Alla källor":(n===1?houseName(curHouses[0]):`${n} källor`);
+  srcBadge.hidden = n<2; srcBadge.textContent = n;
+  srcBtn.classList.toggle("active", n>0);
+  srcClear.hidden = n===0;
+}
+function toggleSource(house,el){
+  const i=curHouses.indexOf(house);
+  if(i>=0)curHouses.splice(i,1); else curHouses.push(house);
+  // Uppdatera bara den klickade raden in-place (menyn stannar öppen, inga
+  // detached element) i stället för att rendera om hela listan.
+  if(el){const on=curHouses.includes(house);el.classList.toggle("on",on);el.setAttribute("aria-checked",on);}
+  curSeller=""; renderSellerPill();   // byte av källa nollställer underhus-filter
+  updateSrcButton();
+  load();
+}
+function clearSources(){ if(!curHouses.length)return; curHouses=[]; curSeller=""; renderSellerPill();
+  srcList.querySelectorAll(".srcopt.on").forEach(o=>{o.classList.remove("on");o.setAttribute("aria-checked","false");});
+  updateSrcButton(); load(); }
+srcList.addEventListener("click",e=>{const o=e.target.closest(".srcopt");if(o)toggleSource(o.dataset.src,o);});
+srcClear.addEventListener("click",e=>{e.stopPropagation();clearSources();});
+srcSearch.addEventListener("input",()=>renderSources(SRC_HOUSES));
+function closeSrc(){srcDD.classList.remove("open");srcBtn.setAttribute("aria-expanded","false");}
+srcBtn.addEventListener("click",e=>{e.stopPropagation();const open=!srcDD.classList.contains("open");
+  srcDD.classList.toggle("open",open);srcBtn.setAttribute("aria-expanded",open);
+  if(open){srcSearch.value="";renderSources(SRC_HOUSES);if(!srcSearchWrap.hidden)setTimeout(()=>srcSearch.focus(),30);}});
+document.addEventListener("click",e=>{if(!srcDD.contains(e.target))closeSrc();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSrc();});
+
+// --- Kategorifilter (huvud → under, byggt ur /categories) ---
+const catDD=document.getElementById("catDD"),catBtn=document.getElementById("catBtn"),
+      catMenu=document.getElementById("catMenu"),catList=document.getElementById("catList"),
+      catLabel=document.getElementById("catLabel"),catClear=document.getElementById("catClear");
+let CATS=[], catOpenMain="";
+async function loadCategories(){try{const d=await (await fetch(`${API}/categories`)).json();CATS=d.categories||[];renderCats();}catch{}}
+function renderCats(){
+  catList.innerHTML = CATS.filter(m=>m.count>0).map(m=>{
+    const onMain=curCategory===m.key, openM=catOpenMain===m.key;
+    const subs = openM ? `<div class="catsubs">`+m.subs.filter(s=>s.count>0).map(s=>{
+      const k=m.key+"/"+s.key, on=curCategory===k;
+      return `<button class="srcopt catsub${on?" on":""}" data-cat="${k}"><span class="nm">${esc(s.label)}</span><span class="cnt">${fmt(s.count)}</span></button>`;
+    }).join("")+`</div>` : "";
+    return `<div class="catgroup"><button class="srcopt catmain${onMain?" on":""}" data-main="${m.key}"><span class="ic">${m.icon}</span><span class="nm">${esc(m.label)}</span><span class="cnt">${fmt(m.count)}</span><span class="cx" data-exp="${m.key}">${openM?"–":"+"}</span></button>${subs}</div>`;
+  }).join("");
+  catBtn.classList.toggle("active", !!curCategory);
+  catClear.hidden = !curCategory;
+}
+function catButtonLabel(){
+  if(!curCategory){catLabel.textContent="Alla kategorier";return;}
+  const [mk,sk]=curCategory.split("/"), m=CATS.find(c=>c.key===mk);
+  catLabel.textContent = sk ? (m?.subs.find(x=>x.key===sk)?.label || curCategory) : (m?.label || mk);
+}
+function pickCategory(key){curCategory=key;catButtonLabel();renderCats();closeCat();load();}
+catList.addEventListener("click",e=>{
+  const exp=e.target.closest("[data-exp]"); if(exp){e.stopPropagation();catOpenMain=catOpenMain===exp.dataset.exp?"":exp.dataset.exp;renderCats();return;}
+  const main=e.target.closest("[data-main]"); if(main){pickCategory(main.dataset.main);return;}
+  const sub=e.target.closest("[data-cat]"); if(sub){pickCategory(sub.dataset.cat);}
+});
+catClear.addEventListener("click",e=>{e.stopPropagation();curCategory="";catButtonLabel();renderCats();load();});
+function closeCat(){catDD.classList.remove("open");catBtn.setAttribute("aria-expanded","false");}
+catBtn.addEventListener("click",e=>{e.stopPropagation();const open=!catDD.classList.contains("open");catDD.classList.toggle("open",open);catBtn.setAttribute("aria-expanded",open);if(open)renderCats();});
+document.addEventListener("click",e=>{if(!catDD.contains(e.target))closeCat();});
+
+// --- Ortfilter (sökbar, byggt ur /locations) ---
+const ortDD=document.getElementById("ortDD"),ortBtn=document.getElementById("ortBtn"),
+      ortList=document.getElementById("ortList"),ortLabel=document.getElementById("ortLabel"),
+      ortSearch=document.getElementById("ortSearch"),ortClear=document.getElementById("ortClear");
+let ORTS=[];
+async function loadLocations(){try{const d=await (await fetch(`${API}/locations`)).json();ORTS=d.locations||[];renderOrts();}catch{}}
+function renderOrts(){
+  const q=(ortSearch.value||"").toLowerCase().trim();
+  const list=ORTS.filter(o=>!q||o.location.toLowerCase().includes(q));
+  ortList.innerHTML = list.length ? list.map(o=>`<button class="srcopt${curOrt===o.location?" on":""}" data-ort="${esc(o.location)}"><span class="nm">${esc(o.location)}</span><span class="cnt">${fmt(o.count)}</span></button>`).join("") : `<div class="srcempty">Ingen ort matchar.</div>`;
+  ortBtn.classList.toggle("active",!!curOrt); ortClear.hidden=!curOrt;
+}
+function pickOrt(o){curOrt=o;ortLabel.textContent=o||"Alla orter";renderOrts();ortDD.classList.remove("open");load();}
+ortList.addEventListener("click",e=>{const b=e.target.closest("[data-ort]");if(b)pickOrt(b.dataset.ort);});
+ortClear.addEventListener("click",e=>{e.stopPropagation();pickOrt("");});
+ortSearch.addEventListener("input",renderOrts);
+ortBtn.addEventListener("click",e=>{e.stopPropagation();const open=!ortDD.classList.contains("open");ortDD.classList.toggle("open",open);ortBtn.setAttribute("aria-expanded",open);if(open){ortSearch.value="";renderOrts();setTimeout(()=>ortSearch.focus(),30);}});
+document.addEventListener("click",e=>{if(!ortDD.contains(e.target))ortDD.classList.remove("open");});
+
+// --- Pris + Slutar (förvalsmenyer) ---
+function presetDD(ddId,btnId,labelId,onPick){
+  const dd=document.getElementById(ddId),btn=document.getElementById(btnId),lbl=document.getElementById(labelId);
+  btn.addEventListener("click",e=>{e.stopPropagation();const open=!dd.classList.contains("open");dd.classList.toggle("open",open);btn.setAttribute("aria-expanded",open);});
+  dd.querySelectorAll(".sortopt").forEach(o=>o.addEventListener("click",()=>{
+    dd.querySelectorAll(".sortopt").forEach(x=>x.classList.remove("on"));o.classList.add("on");
+    lbl.textContent=o.textContent;dd.classList.remove("open");onPick(o,btn);load();
+  }));
+  document.addEventListener("click",e=>{if(!dd.contains(e.target))dd.classList.remove("open");});
+}
+presetDD("prisDD","prisBtn","prisLabel",(o,btn)=>{curPrisMin=o.dataset.min;curPrisMax=o.dataset.max;btn.classList.toggle("active",!!(curPrisMin||curPrisMax));});
+presetDD("slutDD","slutBtn","slutLabel",(o,btn)=>{curSlutar=o.dataset.slut;btn.classList.toggle("active",!!curSlutar);});
+// Underhus-filter (Auctionet-medlem m.fl.) - sätts genom klick på husnamn i ett kort.
+function pickSeller(seller){curSeller=seller;renderSellerPill();window.scrollTo({top:0,behavior:"smooth"});load();}
+function clearSeller(){curSeller="";renderSellerPill();load();}
+function renderSellerPill(){
+  document.getElementById("sellerPill").innerHTML =
+    curSeller?`<span class="sellerpill" onclick="clearSeller()" title="Ta bort filter">${TAG}${esc(curSeller)}<span class="x">×</span></span>`:"";
+}
+document.getElementById("endedToggle").addEventListener("click",()=>{curEnded=!curEnded;document.getElementById("endedToggle").classList.toggle("on",curEnded);load();});
+document.getElementById("konkursToggle").addEventListener("click",()=>{curKonkurs=!curKonkurs;document.getElementById("konkursToggle").classList.toggle("on",curKonkurs);load();});
+document.getElementById("nyToggle").addEventListener("click",()=>{curSkick=curSkick==="ny"?"":"ny";document.getElementById("nyToggle").classList.toggle("on",curSkick==="ny");load();});
+
+// ---- Budmomentum-chip i meta-raden (inte overlay - krockade med nedräkningen): budkrig
+// eller inga bud nära avslut. Inline-chip i .cloc bredvid kategori/skick. ----
+function budChipHTML(it){
+  const n=Number(it.bid_count||0);
+  if(n>=8)return `<span class="bchip hot" title="${n} bud - hög aktivitet">🔥 ${n} bud</span>`;
+  const end=parseEnd(it.ends_at);
+  if(n===0&&it.status!=="ended"&&end&&end-Date.now()>0&&end-Date.now()<24*3600e3)
+    return `<span class="bchip calm" title="Inga bud än - fyndchans nära avslut">Inga bud än</span>`;
+  return "";
+}
+
+// ---- Bevakade objekt (watches): stjärna på kort/detalj + jämför-vy ----
+let WATCHED=new Set(), WATCH_ITEMS=[];
+async function loadWatched(){
+  try{const d=await fetch(`${API}/watchlist`).then(r=>r.json());
+    WATCHED=new Set(d.keys||[]);WATCH_ITEMS=d.items||[];updateCmpCount();refreshStars();}catch{}
+}
+function updateCmpCount(){const b=document.getElementById("cmpCount");if(!b)return;b.textContent=WATCHED.size;b.hidden=WATCHED.size===0;}
+function refreshStars(){
+  document.querySelectorAll("[data-w]").forEach(b=>{
+    const on=WATCHED.has(b.dataset.w);
+    b.classList.toggle("on",on);
+    b.textContent=b.classList.contains("wbtn")?(on?"★ Bevakas - du får notis vid förändringar":"☆ Bevaka objektet"):(on?"★":"☆");
+  });
+}
+async function toggleWatch(house,id){
+  const key=house+"/"+id,on=!WATCHED.has(key);
+  try{
+    await fetch(`${API}/watchlist`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({house,id:String(id),on})});
+    if(on)WATCHED.add(key);else WATCHED.delete(key);
+    updateCmpCount();refreshStars();
+    toast(on?"Bevakas - notis när det slutar snart, reserv uppnås eller avslutas":"Bevakning borttagen");
+    if(!document.getElementById("cmpWrap").hidden){await loadWatched();renderCmp();}
+  }catch{toast("Kunde inte spara bevakningen");}
+}
+
+// ---- Jämför-vyn (bevakade objekt sida vid sida) ----
+async function openCmp(){
+  await loadWatched();
+  if(!WATCH_ITEMS.length){toast("Inga bevakade objekt än - klicka ☆ på ett kort så samlas de här");return;}
+  renderCmp();  // rendera FÖRE vi visar → ingen tom vit blink
+  document.getElementById("cmpWrap").hidden=false;
+}
+function closeCmp(){document.getElementById("cmpWrap").hidden=true;}
+function renderCmp(){
+  document.getElementById("cmpN").textContent=WATCH_ITEMS.length;
+  const body=document.getElementById("cmpBody");
+  if(!WATCH_ITEMS.length){body.innerHTML=`<div class="rp-empty">Inga bevakade objekt än. Klicka ☆ på ett kort eller "Bevaka" i objektvyn.</div>`;return;}
+  body.innerHTML=`<table class="cmptbl"><thead><tr><th></th><th>Objekt</th><th>Hus</th><th class="num">Bud</th><th class="num">Totalt</th><th>Ort</th><th>Slutar</th><th class="num">Bud st</th><th></th></tr></thead><tbody>${
+    WATCH_ITEMS.map(it=>{
+      const e=String(it.external_id).replace(/'/g,"\\'");
+      const ended=it.status==="ended";
+      const{txt}=countdownText(parseEnd(it.ends_at));
+      return `<tr class="${ended?'cended':''}">
+        <td>${it.image?`<img class="cmpimg" src="${esc(it.image)}" loading="lazy" onerror="this.style.opacity=.15">`:`<div class="cmpimg ph">▫</div>`}</td>
+        <td><a href="#" onclick="openDetail('${it.house}','${e}');return false;">${esc((it.title||"").slice(0,70))}</a>${it.cond==="ny"?' <span class="condchip cny">Ny</span>':""}</td>
+        <td>${houseName(it.house)}</td>
+        <td class="num">${money(it.current_bid??it.min_bid,it.currency)}</td>
+        <td class="num">${it.total_price?money(it.total_price,it.currency):"-"}</td>
+        <td>${esc(it.location||"-")}</td>
+        <td>${ended?'<span class="cendlbl">Avslutad</span>':txt}</td>
+        <td class="num">${it.bid_count||0}</td>
+        <td><button class="cmprm" title="Ta bort bevakning" onclick="toggleWatch('${it.house}','${e}')">×</button></td>
+      </tr>`;}).join("")}</tbody></table>`;
+}
+document.getElementById("cmpBtn").addEventListener("click",openCmp);
+document.getElementById("cmpClose").addEventListener("click",closeCmp);
+document.getElementById("cmpWrap").addEventListener("click",e=>{if(e.target.id==="cmpWrap")closeCmp();});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!document.getElementById("cmpWrap").hidden)closeCmp();});
+document.getElementById("cmpToRoute").addEventListener("click",()=>{
+  const act=WATCH_ITEMS.filter(it=>it.status!=="ended"&&it.location);
+  if(!act.length){toast("Inga aktiva bevakade objekt med ort");return;}
+  act.forEach(it=>addToRoute(it.title,{address:it.location,house:it.house,id:it.external_id}));
+  location.href="/rutt";
+});
+
+// ---- Notiser (klockan) + bevakade sökningar ----
+let NOTIFS=[];
+const AGO=t=>{const s=(Date.now()-new Date(t).getTime())/1000;if(s<90)return"nyss";if(s<3600)return Math.round(s/60)+" min";if(s<86400)return Math.round(s/3600)+" h";return Math.round(s/86400)+" d";};
+const KIND_DOT={search_match:"#2f43f5",ending_soon:"#e0822f",reserve_met:"#0c8a5a",ended:"#76746c"};
+async function refreshBell(){
+  try{const d=await fetch(`${API}/notifications?limit=40`).then(r=>r.json());
+    NOTIFS=d.notifications||[];
+    const b=document.getElementById("bellCount");
+    b.textContent=d.unread>99?"99+":d.unread;b.hidden=!d.unread;
+    renderNotifs();maybeToastNew(NOTIFS);}catch{}
+}
+function renderNotifs(){
+  const el=document.getElementById("notifList");
+  el.innerHTML=NOTIFS.length?NOTIFS.map(n=>`
+    <div class="bitem${n.read_at?"":" unread"}" onclick="openNotif('${n.id}','${n.house||""}','${String(n.external_id||"").replace(/'/g,"\\'")}')">
+      <span class="bdot" style="background:${KIND_DOT[n.kind]||"#999"}"></span>
+      <span class="bmain"><span class="bt">${esc(n.title)}</span>${n.body?`<span class="bb">${esc(n.body)}</span>`:""}</span>
+      <span class="btime">${AGO(n.created_at)}</span>
+    </div>`).join(""):`<div class="bempty">Inga notiser än. Bevaka en sökning eller ett objekt så säger vi till.</div>`;
+}
+/** Klick på notis (bell/toast): markera läst automatiskt + öppna objektet. */
+async function markNotifRead(id){
+  try{await fetch(`${API}/notifications/read?id=${encodeURIComponent(id)}`,{method:"POST"});}catch{}
+}
+function openNotif(id,house,extId){
+  if(id)markNotifRead(id).then(refreshBell);
+  const m=document.getElementById("bellMenu");if(m)m.hidden=true;
+  if(house&&extId)openDetail(house,extId);
+}
+
+/* ---- In-page notis-popup (nere till höger) + Web Push ---- */
+const KIND_ICON={search_match:"🔎",ending_soon:"⏰",reserve_met:"✅",ended:"🏁"};
+function showNotifToast(n){
+  // Inte i fullskärm och bara när sidan är synlig (annars räcker OS-notisen).
+  if(document.fullscreenElement||document.visibilityState!=="visible")return;
+  let wrap=document.getElementById("ntoasts");
+  if(!wrap){wrap=document.createElement("div");wrap.id="ntoasts";document.body.appendChild(wrap);}
+  const el=document.createElement("div");el.className="ntoast";
+  el.innerHTML=`<span class="nti">${KIND_ICON[n.kind]||"🔔"}</span>
+    <span class="ntm"><span class="ntt"></span>${n.body?`<span class="ntb"></span>`:""}</span>
+    <button class="ntx" type="button" title="Stäng">×</button>`;
+  el.querySelector(".ntt").textContent=n.title;
+  if(n.body)el.querySelector(".ntb").textContent=n.body;
+  const close=()=>{el.classList.remove("in");setTimeout(()=>el.remove(),350);};
+  el.querySelector(".ntx").addEventListener("click",e=>{e.stopPropagation();close();});
+  el.addEventListener("click",()=>{openNotif(n.id,n.house,n.external_id);close();});
+  wrap.appendChild(el);requestAnimationFrame(()=>el.classList.add("in"));
+  setTimeout(close,9000);
+  while(wrap.children.length>4)wrap.firstChild.remove();
+}
+let NOTIF_BASELINE=null;
+function maybeToastNew(list){
+  const ids=list.map(n=>+n.id).filter(Number.isFinite);
+  const maxId=ids.length?Math.max(...ids):0;
+  const stored=localStorage.getItem("notifBaseline");
+  if(NOTIF_BASELINE===null)NOTIF_BASELINE=stored!=null?+stored:maxId; // första laddning = tyst baslinje
+  const fresh=list.filter(n=>+n.id>NOTIF_BASELINE&&!n.read_at).sort((a,b)=>+a.id-+b.id).slice(-3);
+  for(const n of fresh)showNotifToast(n);
+  if(maxId>NOTIF_BASELINE){NOTIF_BASELINE=maxId;localStorage.setItem("notifBaseline",String(maxId));}
+}
+
+function urlB64ToUint8(b64){
+  const pad="=".repeat((4-b64.length%4)%4);
+  const s=(b64+pad).replace(/-/g,"+").replace(/_/g,"/");
+  const raw=atob(s);return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+async function subscribePush(reg,publicKey){
+  try{
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlB64ToUint8(publicKey)});
+    await fetch(`${API}/push/subscribe`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(sub)});
+    return true;
+  }catch(e){console.warn("push-subscribe misslyckades",e);return false;}
+}
+async function initPush(){
+  if(!("serviceWorker"in navigator))return;
+  let reg;
+  try{reg=await navigator.serviceWorker.register("/sw.js");}catch(e){console.warn("SW-registrering misslyckades",e);return;}
+  // SW ber sidan öppna objekt vid notis-klick (postMessage).
+  navigator.serviceWorker.addEventListener("message",ev=>{
+    const d=ev.data||{};if(d.type==="open-item"&&d.house&&d.externalId)openDetail(d.house,d.externalId);
+    if(d.notifId)refreshBell();
+  });
+  if(!("PushManager"in window)||!("Notification"in window))return;
+  let vapid;try{vapid=await fetch(`${API}/push/vapid`).then(r=>r.json());}catch{return;}
+  if(!vapid.enabled||!vapid.publicKey)return;
+  const btn=document.getElementById("pushEnable");
+  if(Notification.permission==="granted"){
+    subscribePush(reg,vapid.publicKey);
+  }else if(Notification.permission==="default"&&btn){
+    btn.hidden=false;
+    btn.addEventListener("click",async()=>{
+      const perm=await Notification.requestPermission();
+      if(perm==="granted"){btn.hidden=true;const ok=await subscribePush(reg,vapid.publicKey);toast(ok?"Notiser aktiverade":"Kunde inte aktivera notiser");}
+      else toast("Notiser blockerade i webbläsaren");
+    });
+  }
+}
+// Öppna objekt om sidan laddades från en notis-klick (?ahouse=&aitem=&n=).
+function handleNotifUrlParams(){
+  const p=new URLSearchParams(location.search);
+  const h=p.get("ahouse"),i=p.get("aitem"),n=p.get("n");
+  if(n)markNotifRead(n).then(refreshBell);
+  if(h&&i)setTimeout(()=>openDetail(h,i),400);
+  if(h||i||n){p.delete("ahouse");p.delete("aitem");p.delete("n");
+    history.replaceState({},"",location.pathname+(p.toString()?"?"+p:""));}
+}
+async function renderSearchList(){
+  try{const d=await fetch(`${API}/searches`).then(r=>r.json());
+    const el=document.getElementById("searchList");
+    el.innerHTML=(d.searches||[]).length?d.searches.map(s=>{
+      const p=s.params||{};const bits=[p.q,p.category&&"kat:"+p.category.split("/").pop(),p.ort,p.konkurs&&"konkurs",(p.prisMin||p.prisMax)&&`${p.prisMin||0}-${p.prisMax||"∞"} kr`].filter(Boolean).join(" · ");
+      return `<div class="bitem"><span class="bdot" style="background:#2f43f5"></span>
+        <span class="bmain"><span class="bt">${esc(s.name)}</span><span class="bb">${esc(bits||"alla objekt")}</span></span>
+        <button class="cmprm" title="Ta bort" onclick="event.stopPropagation();delSearch(${s.id})">×</button></div>`;
+    }).join(""):`<div class="bempty">Inga bevakade sökningar. Sök + klicka "🔔 Bevaka sökning".</div>`;
+  }catch{}
+}
+async function delSearch(id){
+  await fetch(`${API}/searches/delete`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
+  renderSearchList();toast("Bevakad sökning borttagen");
+}
+document.getElementById("bellBtn").addEventListener("click",()=>{
+  const m=document.getElementById("bellMenu");m.hidden=!m.hidden;
+  if(!m.hidden){refreshBell();renderSearchList();}
+});
+document.getElementById("bellRead").addEventListener("click",async()=>{
+  await fetch(`${API}/notifications/read`,{method:"POST"});refreshBell();
+});
+document.addEventListener("click",e=>{
+  const m=document.getElementById("bellMenu");
+  if(!m.hidden&&!e.target.closest(".belldd"))m.hidden=true;
+});
+document.getElementById("saveSearchBtn").addEventListener("click",async()=>{
+  const params={};
+  if(curQuery)params.q=curQuery;if(curHouses.length)params.house=curHouses;if(curCategory)params.category=curCategory;
+  if(curOrt)params.ort=curOrt;if(curPrisMin)params.prisMin=+curPrisMin;if(curPrisMax)params.prisMax=+curPrisMax;if(curKonkurs)params.konkurs=true;
+  if(!Object.keys(params).length){toast("Sök eller filtrera först - sen bevakar du det");return;}
+  const def=curQuery||[curCategory&&curCategory.split("/").pop(),curOrt,curKonkurs&&"konkurs"].filter(Boolean).join(" ")||"Min bevakning";
+  const name=prompt("Namn på bevakningen (notis vid nya träffar):",def);
+  if(!name)return;
+  await fetch(`${API}/searches`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name,params})});
+  toast(`Bevakar "${name}" - du får notis när nya objekt matchar`);
+});
+
+// ---- Upptäck-sektioner (startsidan utan aktiv sökning/filter) ----
+let discoverLoaded=false;
+function discoverClean(){return !curQuery&&!curHouses.length&&!curSeller&&!curCategory&&!curOrt&&!curPrisMin&&!curPrisMax&&!curSlutar&&!curKonkurs&&!curSkick&&!curEnded&&curSort==="ending";}
+const DISCOVER_SECS=[
+  {key:"fynd",t:"🔥 Fynd just nu",sub:"under uppskattat värde",p:{sort:"fynd"}},
+  {key:"konkurs",t:"⚖️ Konkurs & likvidation",sub:"tvångsförsäljningar",p:{sort:"ending",konkurs:1}},
+  {key:"new",t:"✨ Nyinkommet",sub:"senast tillagda",p:{sort:"newest"}},
+];
+// Skelett för upptäck-sektionerna → reserverar plats så inget hoppar när datan landar.
+function discoverSkeleton(){
+  return DISCOVER_SECS.map(s=>`<section class="dsec"><div class="dhead"><h3>${s.t} <span class="dsub">${s.sub}</span></h3></div>
+    <div class="drow">${Array.from({length:5},()=>`<div class="skeleton dsk"></div>`).join("")}</div></section>`).join("");
+}
+// Hämta ENBART data (render sker i load() tillsammans med gridden).
+async function loadDiscoverData(){
+  const res=await Promise.all(DISCOVER_SECS.map(s=>fetch(`${API}/items?`+new URLSearchParams({limit:10,offset:0,...s.p})).then(r=>r.json()).catch(()=>({items:[]}))));
+  return DISCOVER_SECS.map((s,i)=>({...s,items:res[i].items||[]}));
+}
+function renderDiscover(data){
+  const d=document.getElementById("discover");
+  d.innerHTML=data.map(s=>(s.items.length>=3)?`
+    <section class="dsec"><div class="dhead"><h3>${s.t} <span class="dsub">${s.sub}</span></h3><button class="dall" data-d="${s.key}">Visa alla →</button></div>
+    <div class="drow">${s.items.map(cardHTML).join("")}</div></section>`:"").join("");
+  attachCards([...d.querySelectorAll(".card")]);
+  d.querySelectorAll(".dall").forEach(b=>b.addEventListener("click",()=>{
+    const k=b.dataset.d;
+    if(k==="konkurs"){if(!curKonkurs)document.getElementById("konkursToggle").click();}
+    else{const o=document.querySelector(`.sortopt[data-sort="${k==="fynd"?"fynd":"newest"}"]`);if(o)o.click();}
+    window.scrollTo({top:0,behavior:"smooth"});
+  }));
+  refreshStars();
+}
+
+// ---- Prisuppslag (/priser) ----
+// Pris-över-tid-graf: SVG-scatter av sålda (datum → slutpris) + trendlinje (linjär regression).
+// Visar hur värdet förändrats (nyare = ofta dyrare). "" om för få punkter.
+function priceChart(series){
+  const pts=(series||[]).map(p=>({t:new Date(p.t).getTime(),v:+p.v})).filter(p=>isFinite(p.t)&&p.v>0).sort((a,b)=>a.t-b.t);
+  if(pts.length<5)return "";
+  const W=860,H=240,PL=58,PR=14,PT=14,PB=30;
+  const t0=pts[0].t,t1=pts[pts.length-1].t,tspan=(t1-t0)||1;
+  const vs=pts.map(p=>p.v);let vmin=Math.min(...vs),vmax=Math.max(...vs);if(vmin===vmax){vmin*=0.9;vmax*=1.1;}
+  const X=t=>PL+(t-t0)/tspan*(W-PL-PR);
+  const Y=v=>PT+(1-(v-vmin)/(vmax-vmin))*(H-PT-PB);
+  // linjär regression på (år sedan t0, pris)
+  const yr=pts.map(p=>(p.t-t0)/(365.25*864e5)),n=pts.length;
+  const sx=yr.reduce((a,b)=>a+b,0),sy=vs.reduce((a,b)=>a+b,0),
+        sxx=yr.reduce((a,b)=>a+b*b,0),sxy=yr.reduce((a,b,i)=>a+b*vs[i],0),den=n*sxx-sx*sx;
+  const slope=den?(n*sxy-sx*sy)/den:0, icept=(sy-slope*sx)/n, avg=sy/n;
+  const yTot=(yr[n-1]||0); // tidsspann i år mellan första och sista sålda
+  const sorted=[...vs].sort((a,b)=>a-b), med=sorted[Math.floor(n/2)];
+  // Annualiserad %/år är bara meningsfull om datat spänner tillräckligt lång tid.
+  // Kort fönster (3-6 mån) → en brant lokal lutning blåses upp till absurda årstal.
+  const longEnough=yTot>=0.75;
+  const pctYr=avg>0?Math.round(slope/avg*100):0;
+  const trendTxt=longEnough
+    ?(Math.abs(pctYr)<3?"ungefär stabilt över tid":pctYr<0?`värdet sjunker ~${-pctYr}%/år (äldre = billigare)`:`värdet stiger ~${pctYr}%/år`)
+    :`median ${money(med,"SEK")} · för kort period för årstrend`;
+  const gy=[vmin,(vmin+vmax)/2,vmax];
+  const grid=gy.map(v=>`<line class="ax" x1="${PL}" y1="${Y(v).toFixed(1)}" x2="${W-PR}" y2="${Y(v).toFixed(1)}"/><text class="axlbl" x="${PL-6}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end">${Math.round(v/1000)}k</text>`).join("");
+  const fmtM=ms=>new Date(ms).toISOString().slice(0,7);
+  const xlbl=`<text class="axlbl" x="${PL}" y="${H-8}" text-anchor="start">${fmtM(t0)}</text><text class="axlbl" x="${W-PR}" y="${H-8}" text-anchor="end">${fmtM(t1)}</text>`;
+  const dots=pts.map(p=>`<circle cx="${X(p.t).toFixed(1)}" cy="${Y(p.v).toFixed(1)}" r="2.6" fill="#2f43f5" opacity="0.5"/>`).join("");
+  // Lång period → regressionslinje (trend). Kort period → horisontell medianlinje (typisk nivå).
+  const trend=longEnough
+    ?`<line x1="${PL}" y1="${Y(icept).toFixed(1)}" x2="${X(t1).toFixed(1)}" y2="${Y(icept+slope*yTot).toFixed(1)}" stroke="#dc2626" stroke-width="2" stroke-dasharray="6 5"/>`
+    :`<line x1="${PL}" y1="${Y(med).toFixed(1)}" x2="${W-PR}" y2="${Y(med).toFixed(1)}" stroke="#dc2626" stroke-width="2" stroke-dasharray="6 5"/>`;
+  return `<div class="plchart"><div class="plctitle">Totalkostnad över tid<span>${trendTxt} · ${n} sålda · inkl. avgifter+moms</span></div>
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Pris över tid">${grid}${dots}${trend}${xlbl}</svg></div>`;
+}
+function enterPricePage(){
+  document.title="Prisuppslag - Allarop";
+  const h=document.querySelector("header.hero");if(h)h.style.display="none";
+  const c=document.getElementById("controls");if(c)c.style.display="none";
+  const g=document.getElementById("grid");if(g)g.style.display="none";
+  const sx=document.getElementById("smartx");if(sx)sx.style.display="none";
+  document.getElementById("pricepanel").style.display="block";
+  const form=document.getElementById("plForm"),input=document.getElementById("plQ"),out=document.getElementById("plOut");
+  let curQ="",curMonths=0;
+  const PERIODS=[{m:3,t:"3 mån"},{m:6,t:"6 mån"},{m:12,t:"12 mån"},{m:0,t:"Allt"}];
+  async function run(q,months){
+    curQ=q; if(months!=null)curMonths=months;
+    out.innerHTML=`<div class="rp-empty">Slår upp...</div>`;
+    try{
+      const d=await fetch(`${API}/price-lookup?q=${encodeURIComponent(q)}&months=${curMonths}`).then(r=>r.json());
+      const periodChips=`<div class="plperiods">${PERIODS.map(p=>`<button class="plchip${p.m===curMonths?" on":""}" data-m="${p.m}">${p.t}</button>`).join("")}</div>`;
+      if(!d.stats){out.innerHTML=periodChips+`<div class="rp-empty">Inga verifierat sålda träffar på "${esc(q)}"${curMonths?" de senaste "+curMonths+" mån":""}. Prova ett bredare ord eller längre period.</div>`;bindChips();return;}
+      const s=d.stats;
+      const conf=s.count>=20?"":`<span class="plconf${s.count<5?" low":""}">${s.count<5?"⚠ få träffar - osäker uppskattning":"begränsat underlag"}</span>`;
+      out.innerHTML=periodChips+`<div class="rp-cards" style="margin:12px 0 6px">
+        <div class="rp-card"><div class="k">Verifierat sålda ${conf}</div><div class="v num">${s.count.toLocaleString("sv-SE")}</div></div>
+        <div class="rp-card hl"><div class="k">Median (totalt)</div><div class="v num">${money(s.median,"SEK")}</div></div>
+        <div class="rp-card"><div class="k">Typiskt spann (p25-p75)</div><div class="v num">${money(s.p25,"SEK")} - ${money(s.p75,"SEK")}</div></div>
+        <div class="rp-card"><div class="k">Hela spannet</div><div class="v num">${money(s.min,"SEK")} - ${money(s.max,"SEK")}</div></div>
+      </div>
+      ${priceChart(d.series)}
+      <div class="plbar"><div class="plnote">Faktisk totalkostnad (bud + slagavgift + moms), verifierat sålt. Visar ${d.rows.length} av ${s.count.toLocaleString("sv-SE")}.</div>
+        <button class="plcsv" id="plCsv">⬇ Exportera CSV</button></div>
+      <div class="pllist">${d.rows.map(r=>{const tot=r.final_total??r.final_bid;return `
+        <div class="plrow">
+          ${r.image?`<img class="plimg" loading="lazy" src="${esc(r.image)}" onerror="this.style.opacity=.15">`:`<div class="plimg ph">▫</div>`}
+          <div class="plmain"><div class="plt">${esc(r.item_title)}</div>
+          <div class="plm">${houseName(r.house)} · ${(r.ended_at||"").slice(0,10)}</div></div>
+          <div class="plp num">${money(tot,"SEK")}${tot!==r.final_bid?`<div class="pltot">bud ${money(r.final_bid,"SEK")}</div>`:`<div class="pltot">inga avgifter</div>`}</div>
+        </div>`;}).join("")}</div>`;
+      bindChips();
+      const csv=document.getElementById("plCsv");
+      if(csv)csv.addEventListener("click",()=>{window.location.href=`${API}/price-lookup?format=csv&q=${encodeURIComponent(curQ)}&months=${curMonths}`;});
+    }catch{out.innerHTML=`<div class="rp-empty">Kunde inte slå upp just nu.</div>`;}
+  }
+  function bindChips(){out.querySelectorAll(".plchip").forEach(b=>b.addEventListener("click",()=>run(curQ,+b.dataset.m)));}
+  form.addEventListener("submit",e=>{e.preventDefault();const q=input.value.trim();if(q)run(q,0);});
+  const pre=new URLSearchParams(location.search).get("q");
+  if(pre){input.value=pre;run(pre,0);}
+  input.focus();
+}
+
+// ---- RUTTPLANERARE (egen sida /rutt; ORS/VROOM med lokal fallback) ----
+let _routeOn=false,_rmap=null,_rlayer=null,CUR_DETAIL=null;
+let ROUTE={depot:"",depotLat:null,depotLon:null,start:"08:00",ret:true,auto:false,stops:[]};
+try{const r=JSON.parse(localStorage.getItem("allarop_route")||"null");if(r&&typeof r==="object")ROUTE={depot:r.depot||"",depotLat:r.depotLat??null,depotLon:r.depotLon??null,start:r.start||"08:00",ret:r.ret!==false,auto:r.auto===true,stops:Array.isArray(r.stops)?r.stops:[]};}catch{}
+function persistRoute(){try{localStorage.setItem("allarop_route",JSON.stringify(ROUTE));}catch{}}
+// Tolkar tid flexibelt: "07:00", "7:00", "0700", "700", "7" → minuter på dygnet. null = tomt/ogiltigt.
+function clockToMin(s){
+  s=(s||"").trim();if(!s)return null;
+  let m=/^(\d{1,2}):(\d{2})$/.exec(s);            // HH:MM
+  if(!m)m=/^(\d{1,2})(\d{2})$/.exec(s);           // HHMM / HMM (utan kolon)
+  if(m)return Math.min(23,+m[1])*60+Math.min(59,+m[2]);
+  m=/^(\d{1,2})$/.exec(s);                        // bara timme
+  if(m&&+m[1]<=23)return +m[1]*60;
+  return null;
+}
+// Normalisera ett tidsfält till "HH:MM" så användaren ser att det tolkats rätt (kvitto).
+function normalizeTimeField(el){const mn=clockToMin(el.value);if(mn!=null)el.value=minToClock(mn);}
+// Live-mask MEDAN man skriver: sätt in kolon automatiskt efter timmen ("1300" → "13:00" utan
+// att skriva ":"). Siffror kvar, max 4, kolon efter 2:a siffran. Markören hamnar sist (kort fält).
+function maskTimeInput(el){
+  const d=el.value.replace(/\D/g,"").slice(0,4);
+  el.value=d.length<=2?d:d.slice(0,2)+":"+d.slice(2);
+}
+function minToClock(m){m=Math.round(m);return String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(((m%60)+60)%60).padStart(2,"0");}
+function durFmt(m){m=Math.round(m);const h=Math.floor(m/60),mm=m%60;return h?`${h} h ${mm} min`:`${mm} min`;}
+function toast(msg){let t=document.getElementById("rtoast");if(!t){t=document.createElement("div");t.id="rtoast";t.style.cssText="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:100px;font-size:14px;font-weight:600;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transition:opacity .2s";document.body.appendChild(t);}t.textContent=msg;t.style.opacity="1";clearTimeout(t._h);t._h=setTimeout(()=>t.style.opacity="0",1700);}
+// Leaflet-core (bara karta+polyline+markörer för rutten - ingen cluster/draw längre).
+function loadLeaflet(cb){
+  if(window.L&&window.L.map){cb();return;}
+  const href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+  if(!document.querySelector(`link[href="${href}"]`)){const l=document.createElement("link");l.rel="stylesheet";l.href=href;document.head.appendChild(l);}
+  const s=document.createElement("script");s.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";s.onload=()=>cb();s.onerror=()=>{alert("Kunde inte ladda kartbiblioteket (kräver internet).");};document.head.appendChild(s);
+}
+
+// ---- Adressförslag medan man skriver (ORS autocomplete via /geocode/suggest) ----
+let _sugTimer=null,_sugTarget=null,_sugSeq=0;
+function initAddressSuggest(){
+  if(document.getElementById("rSuggest"))return;
+  const dd=document.createElement("div");dd.id="rSuggest";dd.className="rsug";dd.style.display="none";document.body.appendChild(dd);
+  const panel=document.getElementById("routepanel");
+  panel.addEventListener("input",e=>{
+    const el=e.target;const isDepot=el.id==="rDepot",isStop=el.classList&&el.classList.contains("rp-saddr");
+    if(!isDepot&&!isStop)return;
+    // Att skriva ogiltigförklarar ev. valda koordinater (så pinnen inte blir fel).
+    if(isDepot){ROUTE.depotLat=null;ROUTE.depotLon=null;}
+    else{const st=el.closest(".rp-stop");if(st){const i=+st.dataset.idx;if(ROUTE.stops[i]){ROUTE.stops[i].lat=null;ROUTE.stops[i].lon=null;}}}
+    queueSuggest(el);
+  });
+  panel.addEventListener("focusout",()=>setTimeout(()=>{if(!document.querySelector("#rSuggest:hover"))hideSuggest();},120));
+  window.addEventListener("scroll",hideSuggest,true);
+}
+function queueSuggest(el){
+  _sugTarget=el;const q=el.value.trim();clearTimeout(_sugTimer);
+  if(q.length<3){hideSuggest();return;}
+  const seq=++_sugSeq;
+  _sugTimer=setTimeout(async()=>{
+    try{const d=await fetch("/geocode/suggest?q="+encodeURIComponent(q)).then(r=>r.json());
+      if(seq!==_sugSeq||document.activeElement!==el)return; // föråldrat svar
+      showSuggest(el,d.suggestions||[]);
+    }catch{hideSuggest();}
+  },260);
+}
+function showSuggest(el,list){
+  const dd=document.getElementById("rSuggest");if(!dd)return;
+  if(!list.length){hideSuggest();return;}
+  dd.innerHTML=list.map((s,i)=>`<div class="rsug-item" data-i="${i}">${esc(s.label)}</div>`).join("");
+  const r=el.getBoundingClientRect();
+  dd.style.left=(r.left+window.scrollX)+"px";dd.style.top=(r.bottom+window.scrollY+4)+"px";dd.style.width=r.width+"px";dd.style.display="block";
+  dd.querySelectorAll(".rsug-item").forEach(it=>it.addEventListener("mousedown",ev=>{ev.preventDefault();pickSuggest(list[+it.dataset.i],el);}));
+}
+function pickSuggest(s,el){
+  el.value=s.label;
+  if(el.id==="rDepot"){ROUTE.depot=s.label;ROUTE.depotLat=s.lat;ROUTE.depotLon=s.lon;}
+  else{const st=el.closest(".rp-stop");if(st){const i=+st.dataset.idx;if(ROUTE.stops[i]){ROUTE.stops[i].address=s.label;ROUTE.stops[i].lat=s.lat;ROUTE.stops[i].lon=s.lon;}}}
+  persistRoute();hideSuggest();
+}
+function hideSuggest(){const dd=document.getElementById("rSuggest");if(dd)dd.style.display="none";}
+
+function addToRoute(label,opts){opts=opts||{};ROUTE.stops.push({label:label||"Stopp",address:opts.address||"",service:10,open:"",close:"",house:opts.house||null,id:opts.id!=null?String(opts.id):null,lat:opts.lat??null,lon:opts.lon??null});persistRoute();toast(`Lagt till i rutt (${ROUTE.stops.length})`);if(_routeOn)renderRouteStops();}
+function addCurrentToRoute(){if(!CUR_DETAIL)return;addToRoute(CUR_DETAIL.title,{address:CUR_DETAIL.location,house:CUR_DETAIL.house,id:CUR_DETAIL.id});const b=window.event&&window.event.target;if(b){b.textContent="✓ Tillagd i rutt";b.classList.add("added");}}
+
+function renderRouteStops(){
+  const wrap=document.getElementById("rStops");if(!wrap)return;
+  document.getElementById("rStopN").textContent=ROUTE.stops.length;
+  wrap.innerHTML=ROUTE.stops.map((s,i)=>`
+    <div class="rp-stop" data-idx="${i}">
+      <button class="rp-x" data-rm="${i}" title="Ta bort">×</button>
+      <div class="rp-stop-lbl">${i+1}. ${esc(s.label||"Stopp")}</div>
+      <input class="rp-slabel" placeholder="Etikett" value="${esc(s.label||"")}">
+      <input class="rp-saddr" placeholder="Adress eller ort${s.lat!=null?" (koordinat satt)":""}" value="${esc(s.address||"")}">
+      <div class="rp-mini">
+        <span><label>Tid på plats (min)</label><input class="rp-ssvc" type="number" min="0" step="5" value="${s.service??10}"></span>
+        <span><label>Öppnar</label><input class="rp-sopen" placeholder="--:--" value="${esc(s.open||"")}"></span>
+        <span><label>Stänger</label><input class="rp-sclose" placeholder="--:--" value="${esc(s.close||"")}"></span>
+      </div>
+    </div>`).join("")||`<div style="color:var(--ink-faint);font-size:13px;padding:6px 2px">Inga stopp än. Lägg till nedan, eller klicka "Lägg till i rutt" på ett objekt i söket.</div>`;
+}
+function syncRouteFromDOM(){
+  ROUTE.depot=document.getElementById("rDepot").value.trim();
+  ROUTE.start=document.getElementById("rStart").value.trim()||"08:00";
+  ROUTE.ret=document.getElementById("rReturn").checked;
+  ROUTE.auto=document.getElementById("rAuto").checked;
+  ROUTE.stops=[...document.querySelectorAll("#rStops .rp-stop")].map(el=>{
+    const old=ROUTE.stops[+el.dataset.idx]||{};
+    return {label:el.querySelector(".rp-slabel").value.trim(),address:el.querySelector(".rp-saddr").value.trim(),
+      service:el.querySelector(".rp-ssvc").value,open:el.querySelector(".rp-sopen").value.trim(),close:el.querySelector(".rp-sclose").value.trim(),
+      house:old.house||null,id:old.id!=null?String(old.id):null,lat:old.lat??null,lon:old.lon??null};
+  });
+  persistRoute();
+}
+function renderRouteForm(){
+  document.getElementById("rDepot").value=ROUTE.depot;
+  document.getElementById("rStart").value=ROUTE.start;
+  document.getElementById("rReturn").checked=ROUTE.ret;
+  document.getElementById("rAuto").checked=ROUTE.auto;
+  document.getElementById("rStart").disabled=ROUTE.auto;
+  renderRouteStops();
+}
+async function optimizeRouteNow(){
+  syncRouteFromDOM();
+  const err=document.getElementById("rError");err.textContent="";
+  if(!ROUTE.depot){err.textContent="Fyll i en startpunkt (adress eller ort).";return;}
+  const stops=ROUTE.stops.filter(s=>(s.address&&s.address.length)||(s.lat!=null&&s.lon!=null));
+  if(!stops.length){err.textContent="Lägg till minst ett stopp med adress/ort.";return;}
+  const depotPt=(ROUTE.depotLat!=null&&ROUTE.depotLon!=null)?{lat:ROUTE.depotLat,lon:ROUTE.depotLon,label:ROUTE.depot||"Start"}:{address:ROUTE.depot,label:"Start"};
+  const payload={depot:depotPt,startTime:ROUTE.start,returnToStart:ROUTE.ret,autoStart:ROUTE.auto,
+    stops:stops.map(s=>{const o={label:s.label||s.address||"Stopp",service:Number(s.service)||0};
+      if(s.lat!=null&&s.lon!=null){o.lat=s.lat;o.lon=s.lon;}else o.address=s.address;
+      if(s.house)o.house=s.house;if(s.id)o.id=String(s.id);
+      // Fönster skickas som absoluta minuter på dygnet (samma skala som ankomsttiderna).
+      const os=clockToMin(s.open),cs=clockToMin(s.close);
+      if(os!=null)o.windowStart=os;if(cs!=null)o.windowEnd=cs;
+      return o;})};
+  const btn=document.getElementById("rOptimize");btn.disabled=true;btn.textContent="Beräknar…";
+  try{
+    const r=await fetch(`${API}/route/optimize`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    const d=await r.json();
+    if(!r.ok||d.error){err.textContent=d.error||"Kunde inte beräkna rutten.";return;}
+    renderRouteResult(d);
+  }catch(e){err.textContent="Nätverksfel vid ruttberäkning.";}
+  finally{btn.disabled=false;btn.textContent="Optimera rutt";}
+}
+function renderRouteResult(d){
+  const srcTxt={ors:"OpenRouteService/VROOM · äkta tidsfönster + vägrutt",osrm:"OSRM · riktiga vägtider",estimering:"uppskattat · fågelväg × 1,3"}[d.source]||d.source;
+  document.getElementById("rSrcBadge").textContent="Motor: "+srcTxt;
+  const km=(d.totalDistance/1000).toFixed(1);
+  document.getElementById("rSummary").className="";
+  document.getElementById("rSummary").innerHTML=`<div class="rp-cards">
+    <div class="rp-card"><div class="k">Total sträcka</div><div class="v num">${km} km</div></div>
+    <div class="rp-card"><div class="k">Körtid</div><div class="v">${durFmt(d.travelDuration)}</div></div>
+    <div class="rp-card"><div class="k">${d.autoStart?"Avgång (vald)":"Avgång"}</div><div class="v num">${d.startTime}</div></div>
+    <div class="rp-card"><div class="k">Åter ca</div><div class="v num">${minToClock(d.stops[d.stops.length-1].arrival)}</div></div>
+  </div>`;
+  const anyLate=d.stops.some(s=>s.late);
+  const unassigned=(d.unassigned&&d.unassigned.length)
+    ? `<div class="rp-warn">⚠ Kunde inte passa in inom öppettiderna: <b>${d.unassigned.map(esc).join(", ")}</b>. Vidga tidsfönstren, öka total tid, eller ta bort stoppet.</div>` : "";
+  document.getElementById("rTimeline").innerHTML=`<div class="rp-tl">${d.stops.map(s=>{
+    const leg=s.seq===0?"Avresa":`${(s.legDistance/1000).toFixed(1)} km · ${Math.round(s.legDuration)} min körning`;
+    const nm=(s.house&&s.id)?`<a href="#" onclick="openDetail('${s.house}','${String(s.id).replace(/'/g,"\\'")}');return false;">${esc(s.label)}</a>`:esc(s.label);
+    const svc=s.depot?(s.seq===0?"start":"åter"):`${s.service} min på plats`;
+    const wait=s.wait>0?`<span class="rp-wait"> · väntar ${Math.round(s.wait)} min (öppnar senare)</span>`:"";
+    return `<div class="rp-tlrow${s.depot?" depot":""}">
+      <span class="rp-seq">${s.depot?"⌂":s.seq}</span>
+      <span class="rp-tlmain"><div class="rp-tlname">${nm}</div><div class="rp-tlleg">${leg}${wait}</div></span>
+      <span class="rp-tltime"><div class="ar${s.late?" rp-late":""}">${minToClock(s.arrival)}${s.late?" ⚠":""}</div><div class="sv">${svc}</div></span>
+    </div>`;}).join("")}</div>${unassigned}
+    ${anyLate?`<div class="rp-warn">⚠ = ankomst efter stängning. Lokala lösaren (utan ORS-nyckel) optimerar sträcka men tvingar ej in i tidsfönster - kryssa "Låt optimeraren välja starttid" för äkta fönster-lösning.</div>`:""}`;
+  renderRouteMap(d.stops,d.geometry);
+}
+function renderRouteMap(stops,geometry){
+  const box=document.getElementById("rmap");box.style.display="block";
+  loadLeaflet(()=>{
+    if(!_rmap){_rmap=L.map("rmap").setView([62,15],4);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"© OpenStreetMap"}).addTo(_rmap);_rlayer=L.layerGroup().addTo(_rmap);}
+    _rlayer.clearLayers();
+    // Faktisk vägrutt (geometry) om vi har den; annars raka linjer mellan stoppen.
+    const road=(geometry&&geometry.length>1);
+    const line=road?geometry:stops.map(s=>[s.lat,s.lon]);
+    L.polyline(line,{color:"#2f43f5",weight:4,opacity:.8,dashArray:road?null:"6,7"}).addTo(_rlayer);
+    stops.forEach(s=>{const ic=L.divIcon({className:"",html:`<div class="rp-num${s.depot?" depot":""}">${s.depot?"⌂":s.seq}</div>`,iconSize:[24,24],iconAnchor:[12,12]});
+      L.marker([s.lat,s.lon],{icon:ic}).bindPopup(`<b>${esc(s.label)}</b><br>${minToClock(s.arrival)}`).addTo(_rlayer);});
+    setTimeout(()=>{_rmap.invalidateSize();try{_rmap.fitBounds(line,{maxZoom:12,padding:[30,30]});}catch(e){}},120);
+  });
+}
+// /rutt = egen sida: dölj sök-chrome, visa bara ruttpanelen.
+function enterRoutePage(){
+  _routeOn=true;document.title="Ruttplanerare - Allarop";
+  const h=document.querySelector("header.hero");if(h)h.style.display="none";
+  const c=document.getElementById("controls");if(c)c.style.display="none";
+  const g=document.getElementById("grid");if(g)g.style.display="none";
+  const sx=document.getElementById("smartx");if(sx)sx.style.display="none";
+  document.getElementById("routepanel").style.display="block";
+  renderRouteForm();
+  initAddressSuggest();
+  // Tidsfält (starttid + öppettider): live-mask MEDAN man skriver ("1300" → "13:00" utan kolon),
+  // och full normalisering (padda "7" → "07:00") när man lämnar fältet.
+  const isTimeField=el=>el.id==="rStart"||(el.classList&&(el.classList.contains("rp-sopen")||el.classList.contains("rp-sclose")));
+  document.getElementById("routepanel").addEventListener("input",e=>{if(isTimeField(e.target))maskTimeInput(e.target);});
+  document.getElementById("routepanel").addEventListener("change",e=>{if(isTimeField(e.target))normalizeTimeField(e.target);});
+  const auto=document.getElementById("rAuto");
+  auto.addEventListener("change",()=>{document.getElementById("rStart").disabled=auto.checked;syncRouteFromDOM();});
+  document.getElementById("rAddStop").addEventListener("click",()=>{syncRouteFromDOM();ROUTE.stops.push({label:"",address:"",service:10,open:"",close:"",house:null,id:null,lat:null,lon:null});persistRoute();renderRouteStops();});
+  document.getElementById("rClear").addEventListener("click",()=>{if(!ROUTE.stops.length)return;ROUTE.stops=[];persistRoute();renderRouteStops();});
+  document.getElementById("rOptimize").addEventListener("click",optimizeRouteNow);
+  document.getElementById("rStops").addEventListener("click",e=>{const rm=e.target.closest("[data-rm]");if(rm){syncRouteFromDOM();ROUTE.stops.splice(+rm.dataset.rm,1);persistRoute();renderRouteStops();}});
+}
+
+document.getElementById("reserveFilter").addEventListener("change",e=>{curReserve=e.target.value;load();});
+
+async function stats(){try{const r=await fetch(`${API}/houses`);const d=await r.json();const hs=d.houses||[];renderSources(hs);const total=hs.reduce((s,h)=>s+(h.item_count||0),0);document.getElementById("livecount").textContent=`${fmt(total)} aktiva auktioner`;document.getElementById("stat").textContent=hs.map(h=>houseName(h.house)).join(" · ");}catch{}}
+async function loadRates(){try{RATES=await (await fetch(`${API}/rates`)).json();}catch{}}
+// ---- Admin-inloggning (UI-gating) ----
+function openLogin(){const w=document.getElementById("loginWrap");if(!w)return;w.hidden=false;const e=document.getElementById("loginErr");if(e)e.hidden=true;setTimeout(()=>{const p=document.getElementById("loginPw");if(p){p.value="";p.focus();}},30);}
+function closeLogin(){const w=document.getElementById("loginWrap");if(w)w.hidden=true;}
+async function doLogout(){try{await fetch(`${API}/admin/logout`,{method:"POST"});}catch{}location.href="/";}
+function applyAdminUI(sess){
+  IS_ADMIN=!!sess.admin;ADMIN_CONFIGURED=!!sess.configured;
+  document.body.classList.toggle("is-admin",IS_ADMIN);
+  const link=document.getElementById("adminLink");
+  if(link){
+    if(!ADMIN_CONFIGURED){link.style.display="none";}                 // öppet läge (lokalt) - ingen inloggning
+    else if(IS_ADMIN){link.textContent="Logga ut";link.onclick=e=>{e.preventDefault();doLogout();};}
+    else{link.textContent="Logga in";link.onclick=e=>{e.preventDefault();openLogin();};}
+  }
+}
+(function(){
+  const form=document.getElementById("loginForm");
+  if(form)form.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const pw=(document.getElementById("loginPw")||{}).value||"";
+    const err=document.getElementById("loginErr"),go=document.getElementById("loginGo");
+    if(go)go.disabled=true;
+    try{
+      const r=await fetch(`${API}/admin/login`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:pw})});
+      if(r.ok){location.reload();return;}
+      const d=await r.json().catch(()=>({}));
+      if(err){err.textContent=r.status===429?"För många försök - vänta en stund.":(d.error||"Fel lösenord");err.hidden=false;}
+    }catch{if(err){err.textContent="Kunde inte logga in just nu.";err.hidden=false;}}
+    if(go)go.disabled=false;
+  });
+  const c=document.getElementById("loginClose");if(c)c.addEventListener("click",closeLogin);
+  const w=document.getElementById("loginWrap");if(w)w.addEventListener("click",e=>{if(e.target===w)closeLogin();});
+  const ag=document.getElementById("agLogin");if(ag)ag.addEventListener("click",openLogin);
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeLogin();});
+})();
+// Gate-panel för personliga sidor (/priser, /rutt) när ej inloggad.
+function showAdminGate(title){
+  const h=document.querySelector("header.hero");if(h)h.style.display="none";
+  const c=document.getElementById("controls");if(c)c.style.display="none";
+  const g=document.getElementById("grid");if(g)g.style.display="none";
+  const d=document.getElementById("discover");if(d)d.hidden=true;
+  const gate=document.getElementById("adminGate");if(gate){const t=document.getElementById("agTitle");if(t)t.textContent=title;gate.hidden=false;}
+  document.title=title+" - Allarop";
+}
+// ---- Bootstrap (admin-medveten) ----
+const PAGEPATH=location.pathname.replace(/\/+$/,"");
+async function boot(){
+  let sess={admin:false,configured:false};
+  try{sess=await fetch(`${API}/admin/session`,{cache:"no-store"}).then(r=>r.json());}catch{}
+  applyAdminUI(sess);
+  if(PAGEPATH==="/rutt"){IS_ADMIN?enterRoutePage():showAdminGate("Ruttplanerare");stats();}
+  else if(PAGEPATH==="/priser"){IS_ADMIN?enterPricePage():showAdminGate("Prisuppslag");stats();}
+  else{load();stats();loadCategories();loadLocations();loadRates().then(()=>{if(document.querySelectorAll(".card").length)refreshInPlace();});}
+  // Personliga funktioner (bevakning/notiser/push) laddas bara för inloggad admin.
+  if(IS_ADMIN){loadWatched();refreshBell();setInterval(refreshBell,45000);initPush();handleNotifUrlParams();}
+  // Djuplänk ?admin=1 öppnar inloggningen direkt.
+  if(!IS_ADMIN&&ADMIN_CONFIGURED&&new URLSearchParams(location.search).get("admin")==="1")openLogin();
+}
+boot();
+</script>
+</body>
+</html>

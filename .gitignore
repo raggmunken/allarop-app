@@ -1,0 +1,33 @@
+node_modules/
+dist/
+data/images/
+*.log
+.env
+.env.local
+.DS_Store
+recon-output/
+*.jpeg
+
+# Rå recon-datamängder från manuell trafikinspelning (HAR/curl/fetch-dumpar,
+# kan innehålla sessions-cookies) - ersatta av src/recon/capture.ts, hör inte
+# hemma i repo. Ankrade till roten (matchar EJ src/connectors/blinto m.fl.).
+/Kronofogden/
+/auktionsgruppen/
+/biluppgifter/
+/blinto/
+/ereplacementparts/
+/junora/
+/netauktiom/
+/ps/
+/retrade/
+/tovek/
+
+# Verktygsartefakter, ej del av produkten
+.claude/
+.playwright-mcp/
+data/*.json
+recon-output/
+
+# Databasdump/backuper om de skulle hamna i repo-roten
+*.sql.gz
+*.dump

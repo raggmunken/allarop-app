@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Om Allarop</title>
+<style>
+  :root{
+    --bg:#faf8f4;--fg:#1c1a17;--muted:#6f685c;--faint:#8a8377;--line:#e5e0d8;
+    --card:#fff;--accent:#2f7d4f;--accent-soft:#eef5ef;--accent2:#b07a2c;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#15140f;--fg:#efe9dd;--muted:#a49c8c;--faint:#8a8377;--line:#2c2a23;
+      --card:#1d1b15;--accent:#67c98c;--accent-soft:#1a241d;--accent2:#d8a552;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  a{color:var(--accent)}
+  .top{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--card) 70%,transparent);
+    position:sticky;top:0;backdrop-filter:blur(8px);z-index:10}
+  .top .in{max-width:840px;margin:0 auto;padding:16px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .logo{display:inline-flex;align-items:center;gap:9px;font-weight:700;font-size:18px;color:var(--fg);text-decoration:none;letter-spacing:-.01em}
+  .logo .mark{width:16px;height:16px;border-radius:5px;background:var(--accent);display:inline-block}
+  .subnav{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+  .subnav a{font-size:13.5px;text-decoration:none;color:var(--muted);padding:6px 11px;border-radius:8px;white-space:nowrap}
+  .subnav a:hover{background:var(--accent-soft);color:var(--accent)}
+  .subnav a.on{background:var(--accent);color:#fff}
+  main{max-width:840px;margin:0 auto;padding:42px 22px 90px}
+  .lead{font-size:19px;line-height:1.55;color:var(--muted);margin:0 0 8px;max-width:60ch}
+  section{scroll-margin-top:90px;padding:30px 0;border-top:1px solid var(--line)}
+  section:first-of-type{border-top:none}
+  h1{font-size:30px;line-height:1.15;letter-spacing:-.02em;margin:0 0 20px}
+  h2{font-size:23px;letter-spacing:-.01em;margin:0 0 14px;display:flex;align-items:center;gap:10px}
+  h2 .n{font-size:12px;font-weight:700;color:var(--accent);background:var(--accent-soft);
+    border-radius:20px;padding:3px 10px;letter-spacing:.03em;text-transform:uppercase}
+  h3{font-size:15.5px;margin:22px 0 6px;letter-spacing:.01em}
+  p{margin:0 0 13px;max-width:66ch}
+  ul{margin:0 0 14px;padding-left:20px;max-width:66ch}
+  li{margin:0 0 7px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:0 0 16px}
+  .muted{color:var(--muted)}
+  .fine{font-size:13.5px;color:var(--faint);margin-top:6px}
+  strong{font-weight:650}
+  .updated{font-size:13px;color:var(--faint);margin-top:2px}
+  footer{max-width:840px;margin:0 auto;padding:26px 22px 60px;border-top:1px solid var(--line);
+    color:var(--faint);font-size:13.5px;display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  footer a{color:var(--muted);text-decoration:none}
+  footer a:hover{color:var(--accent)}
+  .back{display:inline-flex;align-items:center;gap:6px;font-size:14px;text-decoration:none;color:var(--accent);margin-bottom:26px}
+</style>
+</head>
+<body>
+  <div class="top">
+    <div class="in">
+      <a class="logo" href="/"><span class="mark"></span> Allarop</a>
+      <nav class="subnav">
+        <a href="/om" data-sec="om">Om</a>
+        <a href="/villkor" data-sec="villkor">Villkor</a>
+        <a href="/integritet" data-sec="integritet">Integritet</a>
+        <a href="/kontakt" data-sec="kontakt">Kontakt</a>
+      </nav>
+    </div>
+  </div>
+
+  <main>
+    <a class="back" href="/">&larr; Till söket</a>
+    <h1>Om tjänsten &amp; villkor</h1>
+    <p class="lead">Allarop samlar utbudet från Sveriges nätauktioner på ett ställe. Vi listar och länkar vidare - all budgivning och betalning sker hos respektive auktionssajt.</p>
+
+    <section id="om">
+      <h2><span class="n">Om</span> Vad Allarop är</h2>
+      <p>Allarop är en <strong>aggregator och mellanhand</strong>. Vi samlar in publikt tillgängliga objekt från svenska nätauktionshus, gör dem sökbara på ett ställe, och länkar vidare till källan. Vi är <strong>inte part</strong> i någon auktion eller affär.</p>
+      <h3>Så fungerar det</h3>
+      <ul>
+        <li>Du söker och bläddrar bland objekt från flera auktionssajter samtidigt.</li>
+        <li>När du hittar något klickar du dig vidare till auktionshuset. <strong>Bud, betalning och köp sker alltid där</strong>, enligt husets egna villkor.</li>
+        <li>Vi räknar fram det <strong>verkliga totalpriset</strong> (bud plus slagavgift och moms) så långt husets uppgifter tillåter, så att du kan jämföra äpplen med äpplen.</li>
+      </ul>
+      <h3>Om uppgifterna</h3>
+      <p>Informationen hämtas från auktionshusens publika sidor och uppdateras löpande. Uppgifter kan vara fördröjda eller felaktiga. <strong>Kontrollera alltid pris, avgifter, skick och sluttid hos källan innan du lägger ett bud.</strong> Prisindikationer som "under värdet" är automatiskt beräknade uppskattningar, inte värderingar eller köprekommendationer.</p>
+    </section>
+
+    <section id="villkor">
+      <h2><span class="n">Villkor</span> Användarvillkor</h2>
+      <p>Genom att använda Allarop godkänner du följande.</p>
+      <ul>
+        <li><strong>Befintligt skick.</strong> Tjänsten tillhandahålls som den är, utan garantier om korrekthet, fullständighet eller tillgänglighet.</li>
+        <li><strong>Ingen part i affären.</strong> Allarop förmedlar inga köp och är inte part i någon auktion. Avtal ingås mellan dig och auktionshuset enligt husets villkor.</li>
+        <li><strong>Uppgifter kan vara fel.</strong> Priser, avgifter, totalbelopp, sluttider, skick och kategorier är speglingar eller uppskattningar och kan vara inaktuella. Kontrollera alltid hos källan. Allarop ansvarar inte för beslut du fattar utifrån informationen här.</li>
+        <li><strong>Prisindikationer.</strong> Uppskattat värde och fynd-markeringar är automatiskt framräknade och utgör inte finansiell eller värderingsmässig rådgivning.</li>
+        <li><strong>Immaterialrätt.</strong> Objektbeskrivningar och bilder tillhör respektive auktionshus eller rättighetsinnehavare och visas i hänvisande syfte. Se <a href="/kontakt">Kontakt &amp; takedown</a> för borttagning.</li>
+        <li><strong>Otillåten användning.</strong> Automatiserad storskalig skörning av Allarop, eller återpublicering av tjänstens sammanställda data, är inte tillåten.</li>
+        <li><strong>Ändringar.</strong> Villkoren kan uppdateras. Fortsatt användning efter en ändring innebär att du godkänner den nya versionen.</li>
+      </ul>
+      <p class="fine">Ansvarsbegränsning: Allarop ansvarar inte för direkta eller indirekta skador till följd av användning av tjänsten, i den utsträckning lag medger.</p>
+    </section>
+
+    <section id="integritet">
+      <h2><span class="n">Integritet</span> Integritetspolicy</h2>
+      <p>Vi samlar in så lite som möjligt och säljer aldrig data vidare. Ingen annonsering, ingen tredjepartsspårning.</p>
+      <div class="card">
+        <h3 style="margin-top:0">Vad vi <em>inte</em> sparar</h3>
+        <p style="margin-bottom:0">Vi lagrar <strong>aldrig identiteten på budgivare eller säljare</strong>. Uppgifter som säljaralias eller medlems-id (t.ex. från Tradera) sparas inte. Auktionsdatan vi lagrar är publik objektinformation, inte dina personuppgifter.</p>
+      </div>
+      <h3>Cookies</h3>
+      <p>Allarop använder <strong>en enda cookie</strong>, och bara för administratörsinloggning (<code>allarop_admin</code>). Den är nödvändig för funktionen och sätts först när en administratör loggar in. Inga analys-, annons- eller spårningscookies. Inga tredjepartscookies. En vanlig besökare kan söka och bläddra helt utan cookies.</p>
+      <h3>Notiser (endast administratör)</h3>
+      <p>Om administratören aktiverar push-notiser sparas en teknisk push-prenumeration (en endpoint hos webbläsarens push-tjänst) för att kunna leverera notiser. Ingen profilering sker. Prenumerationen tas bort när notiser stängs av.</p>
+      <h3>Loggar och säkerhet</h3>
+      <p>För drift och säkerhet (t.ex. att begränsa överbelastning) kan IP-adresser förekomma tillfälligt i minnet. De används inte för att profilera besökare och sparas inte långsiktigt.</p>
+      <h3>Externa tjänster</h3>
+      <p>Kart- och ruttfunktioner (endast för administratör) använder tredjeparts karttjänster för kartbilder och ruttberäkning. Dessa kan ta emot de adresser som matas in i ruttplaneraren.</p>
+      <h3>Rättslig grund och dina rättigheter</h3>
+      <p>Behandlingen sker med stöd av berättigat intresse att driva tjänsten, samt för nödvändiga funktionscookies. Du har rätt till tillgång, rättelse, radering och att invända. Hör av dig via <a href="/kontakt">kontaktuppgifterna</a> så hjälper vi dig.</p>
+    </section>
+
+    <section id="kontakt">
+      <h2><span class="n">Kontakt</span> Kontakt &amp; takedown</h2>
+      <p>Frågor, dataärenden eller borttagning - mejla oss:</p>
+      <div class="card">
+        <p style="margin-bottom:4px"><strong>E-post:</strong> <a id="mail" href="mailto:tubemunken@gmail.com">tubemunken@gmail.com</a></p>
+        <p class="fine" style="margin-bottom:0">Vi svarar normalt inom några arbetsdagar.</p>
+      </div>
+      <h3>Är du rättighetsinnehavare eller auktionshus?</h3>
+      <p>Vill du att en viss listning, bild eller beskrivning tas bort - eller att din sajt inte speglas alls - hör av dig så åtgärdar vi det skyndsamt. Ange gärna:</p>
+      <ul>
+        <li>vem du är och din roll (rättighetsinnehavare, auktionshus, ombud),</li>
+        <li>vilken sajt eller vilket objekt det gäller (helst en länk/URL),</li>
+        <li>vad som ska tas bort eller ändras.</li>
+      </ul>
+      <p>Vill ni i stället <strong>samarbeta och listas som partner</strong> med länkning och trafik tillbaka till er - hör gärna av er, det är precis så här är tänkt att fungera.</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>Allarop - aggregator &amp; mellanhand. All budgivning sker hos respektive auktionssajt.</span>
+    <a href="/om">Om</a><a href="/villkor">Villkor</a><a href="/integritet">Integritet</a><a href="/kontakt">Kontakt</a>
+    <a href="/">Till söket</a>
+  </footer>
+
+<script>
+  // Vilken av de fyra sidorna (samma HTML) - markera fliken, sätt titel och scrolla dit.
+  (function(){
+    var path=location.pathname.replace(/\/+$/,"")||"/om";
+    var sec=path.slice(1); // "om" | "villkor" | "integritet" | "kontakt"
+    var titles={om:"Om Allarop",villkor:"Anvandarvillkor - Allarop",integritet:"Integritetspolicy - Allarop",kontakt:"Kontakt & takedown - Allarop"};
+    if(titles[sec])document.title=titles[sec];
+    document.querySelectorAll(".subnav a").forEach(function(a){a.classList.toggle("on",a.dataset.sec===sec);});
+    var el=document.getElementById(sec);
+    if(el&&sec!=="om"){
+      // Hoppa direkt till avsnittet utan mjuk-scroll-fördröjning vid direktladdning.
+      requestAnimationFrame(function(){el.scrollIntoView();});
+    }
+    // Klick i subnav byter URL utan omladdning och scrollar mjukt.
+    document.querySelectorAll(".subnav a").forEach(function(a){
+      a.addEventListener("click",function(e){
+        e.preventDefault();
+        var s=a.dataset.sec, t=document.getElementById(s);
+        history.pushState(null,"","/"+s);
+        if(titles[s])document.title=titles[s];
+        document.querySelectorAll(".subnav a").forEach(function(x){x.classList.toggle("on",x===a);});
+        if(t)t.scrollIntoView({behavior:"smooth"});
+      });
+    });
+  })();
+</script>
+</body>
+</html>

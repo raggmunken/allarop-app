@@ -1,0 +1,11 @@
+node_modules
+dist
+data
+recon-output
+tovek
+test
+.git
+.env
+.env.local
+*.log
+npm-debug.log

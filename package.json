@@ -1,0 +1,37 @@
+{
+  "name": "allarop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Aggregator för svenska nätauktioner — startar med Tovek.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "cli": "tsx src/cli.ts",
+    "db:up": "docker compose up -d db",
+    "db:init": "tsx src/cli.ts db-init",
+    "ingest": "tsx src/cli.ts ingest-once",
+    "poll": "tsx src/cli.ts poll",
+    "api": "tsx src/cli.ts api",
+    "recon": "tsx src/cli.ts recon"
+  },
+  "dependencies": {
+    "pg": "^8.13.1",
+    "playwright-core": "^1.61.1",
+    "web-push": "^3.6.7"
+  },
+  "optionalDependencies": {
+    "cloakbrowser": "^0.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

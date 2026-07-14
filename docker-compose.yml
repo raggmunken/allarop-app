@@ -1,0 +1,208 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: allarop-db
+    environment:
+      POSTGRES_USER: allarop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-allarop}
+      POSTGRES_DB: allarop
+    ports:
+      - "5432:5432"
+    volumes:
+      - allarop-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U allarop"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # Engångsjobb: skapar/migrerar schemat och registrerar Tovek.
+  migrate:
+    build: .
+    image: allarop:latest
+    command: ["db-init"]
+    environment:
+      DATABASE_URL: postgres://allarop:${POSTGRES_PASSWORD:-allarop}@db:5432/allarop
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  # Adaptiv schemaläggare (realtid): full refresh (30 min) + tidsstyrd hot-poll
+  # (grundtick 10s, tätare ju närmare avslut) + katalogsvep + bildspegling.
+  scheduler:
+    build: .
+    image: allarop:latest
+    command: ["poll"]
+    environment:
+      DATABASE_URL: postgres://allarop:${POSTGRES_PASSWORD:-allarop}@db:5432/allarop
+      FULL_REFRESH_MS: ${FULL_REFRESH_MS:-1800000}
+      BASE_TICK_MS: ${BASE_TICK_MS:-10000}
+      FLAT_SWEEP_PAGES: ${FLAT_SWEEP_PAGES:-40}
+      MIRROR_IMAGES: ${MIRROR_IMAGES:-1}
+      # LLM-klassning: bild+text via billig betalmodell (huvudpass) + text för bildlösa.
+      # Budgetvakt: AI_USAGE_MAX_USD = tak för kontots total_usage → sen gratiskedjan.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_TEXT_MODEL: ${OPENROUTER_TEXT_MODEL:-}
+      OPENROUTER_VISION_MODEL: ${OPENROUTER_VISION_MODEL:-}
+      OPENROUTER_PAID_MODEL: ${OPENROUTER_PAID_MODEL:-}
+      AI_USAGE_MAX_USD: ${AI_USAGE_MAX_USD:-28}
+      AI_CLASSIFY_INTERVAL_MS: ${AI_CLASSIFY_INTERVAL_MS:-300000}
+      AI_CLASSIFY_BATCH: ${AI_CLASSIFY_BATCH:-40}
+      AI_IMAGE_CLASSIFY_INTERVAL_MS: ${AI_IMAGE_CLASSIFY_INTERVAL_MS:-60000}
+      AI_IMAGE_CLASSIFY_BATCH: ${AI_IMAGE_CLASSIFY_BATCH:-10}
+      # ANPR-sidecar (dedikerad plåtläsning) - containern når den via tjänstnamnet.
+      ALPR_URL: ${ALPR_URL:-http://alpr:8000}
+      # Bild-embedding-dimension (DINOv3 ViT-L/16 = 1024). Måste matcha sidecar-modellen.
+      EMBED_DIM: ${EMBED_DIM:-1024}
+      # ViT-L gör ~1,0s/bild och MÄTTAR alla CPU-kärnor per inferens. Tidigare 8 bilder/60s
+      # = 0,13/s (ETA 118h!) var en ren schemaläggnings-strypning, INTE modellkostnad.
+      # Nu: kontinuerlig matning (kort intervall + större batch). concurrency 1 (INTE 2) är
+      # avsiktligt: två bild-inferenser in-flight fick den INTERAKTIVA query-text-embeddingen
+      # (semantisk sök) att köa >2s → timeout varje sökning. Med conc 1 väntar text-embed bara
+      # bakom EN inferens (~1s) < 2s-timeouten → semantisk sök överlever. ~0,5-0,6/s (ETA ~28h).
+      EMBED_CONCURRENCY: ${EMBED_CONCURRENCY:-1}
+      EMBED_BATCH: ${EMBED_BATCH:-24}
+      EMBED_INTERVAL_MS: ${EMBED_INTERVAL_MS:-3000}
+      # Max-speed (/status): GPU gör ViT-L ~30/s → flaskhalsen blir CDN-hämtningen, så hög
+      # concurrency (många parallella hämtningar) håller GPU:n matad. Stor batch = få DB-rundor.
+      # GPU-embeddingen är FETCH-BUNDEN (CDN-hämtning ~0,5-1s/bild dominerar; GPU:n svälts vid
+      # för låg concurrency). Concurrency 32 = många parallella hämtningar så GPU:n hålls matad
+      # trots enstaka långsamma URL:er. PG_POOL_MAX matchar så workers ej köar på DB. Kortare
+      # fetch-timeout (8s) → döda/tröga URL:er stoppar inte en worker i 15s. Batch 128 amorterar
+      # candidate-queryn. VRAM lågt (inferenser serialiseras på GPU-strömmen).
+      EMBED_MAX_CONCURRENCY: ${EMBED_MAX_CONCURRENCY:-32}
+      EMBED_MAX_BATCH: ${EMBED_MAX_BATCH:-128}
+      EMBED_MAX_INTERVAL_MS: ${EMBED_MAX_INTERVAL_MS:-100}
+      PG_POOL_MAX: ${PG_POOL_MAX:-32}
+      IMAGE_FETCH_TIMEOUT_MS: ${IMAGE_FETCH_TIMEOUT_MS:-8000}
+      # Web Push (schemaläggaren skickar notiser i watchPass när nya notiser skapas).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@allarop.local}
+      # Tradera-prisdata (ENBART sålt) kontinuerligt i bakgrunden. TRADERA_ENABLED=0 = av.
+      # Browser-tungt (delar CloakBrowser med Blinto) → försiktiga defaults. Två pass:
+      # färskhet (sida 1 nyast, roterande rötter) + djup backfill-trickle.
+      TRADERA_ENABLED: ${TRADERA_ENABLED:-1}
+      TRADERA_FRESH_MS: ${TRADERA_FRESH_MS:-150000}
+      TRADERA_ROOTS_PER_CYCLE: ${TRADERA_ROOTS_PER_CYCLE:-6}
+      TRADERA_FRESH_PAGES: ${TRADERA_FRESH_PAGES:-1}
+      TRADERA_BACKFILL_MS: ${TRADERA_BACKFILL_MS:-600000}
+      TRADERA_BACKFILL_FETCHES: ${TRADERA_BACKFILL_FETCHES:-25}
+    volumes:
+      - allarop-images:/app/data/images
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # ANPR-sidecar: dedikerad plåtläsning (fast-alpr, ONNX/CPU) - lokalt, gratis, inga
+  # rate-limits. Node (scheduler + script) POSTar bild-bytes → {plate, confidence}.
+  alpr:
+    build: ./alpr
+    image: allarop-alpr:latest
+    restart: unless-stopped
+    # autoheal startar om containern när healthchecken slår om till unhealthy (GPU-
+    # sidecaren kan hänga efter lång drift; native Docker restartar EJ på unhealthy).
+    labels:
+      - autoheal=true
+    ports:
+      - "${ALPR_PORT:-8099}:8000"
+    environment:
+      # ViT-L på GPU (CUDAExecutionProvider). ORT_USE_GPU=0 → tvinga CPU (om GPU strular).
+      ORT_USE_GPU: ${ORT_USE_GPU:-1}
+    # Nvidia-GPU för ViT-L-embeddingen (kräver nvidia-container-toolkit / Docker Desktop GPU).
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      # python3 (CUDA-basimagen har inte 'python'-alias). Längre start_period: CUDA-init tar tid.
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  # Autoheal: startar om containrar märkta autoheal=true som blir "unhealthy" (t.ex. en
+  # hängd GPU-sidecar). Ren watchdog via docker.sock - rör inget annat.
+  autoheal:
+    image: willfarrell/autoheal:latest
+    restart: unless-stopped
+    environment:
+      AUTOHEAL_CONTAINER_LABEL: autoheal
+      AUTOHEAL_INTERVAL: 30        # kolla var 30:e sekund
+      AUTOHEAL_START_PERIOD: 120   # ge en nystartad container 120s innan den bevakas
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # Läs-API.
+  api:
+    build: .
+    image: allarop:latest
+    command: ["api"]
+    environment:
+      DATABASE_URL: postgres://allarop:${POSTGRES_PASSWORD:-allarop}@db:5432/allarop
+      PORT: 3000
+      # Publik drift: sätt NODE_ENV=production + ett STARKT ADMIN_PASSWORD i .env. Utan
+      # lösenord i produktion vägrar api:t starta (annars vore admin-skyddet öppet). Lokalt
+      # (NODE_ENV tomt) körs allt öppet. TRUST_PROXY=1 när api:t står bakom Caddy/nginx så
+      # rate-limitern läser klientens riktiga IP ur X-Forwarded-For.
+      NODE_ENV: ${NODE_ENV:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_SECRET: ${ADMIN_SECRET:-}
+      TRUST_PROXY: ${TRUST_PROXY:-}
+      MY_BIDDER: ${MY_BIDDER:-}
+      # AI-bildgranskning av prisjämförelser (gratis vision-modell via OpenRouter).
+      # Skapa gratis nyckel på openrouter.ai → lägg OPENROUTER_API_KEY=sk-or-... i .env.
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_VISION_MODEL: ${OPENROUTER_VISION_MODEL:-}
+      AI_VERIFY_MAX: ${AI_VERIFY_MAX:-8}
+      # Sök-expansionen (smart sök) använder betalmodellen under budgettaket - måste
+      # matcha schemaläggarens tak, annars faller api:t till gratis-modeller för tidigt.
+      AI_USAGE_MAX_USD: ${AI_USAGE_MAX_USD:-28}
+      # ANPR/embedding-sidecar: /price-stats gör en live-embedding av målet vid behov.
+      ALPR_URL: ${ALPR_URL:-http://alpr:8000}
+      VISUAL_MIN: ${VISUAL_MIN:-0.12}
+      # Semantisk hybrid-sök (e5-base). SEARCH_SEM_Z = adaptiv z-score-tröskel (frågor utan
+      # äkta matchning ger tomt → hellre inget än fel); SEARCH_SEM_WEIGHT = RRF-vikt (lexikal
+      # =1.0 dominerar toppen). Tunbart utan ombygge.
+      SEARCH_SEM_Z: ${SEARCH_SEM_Z:-4.0}
+      SEARCH_SEM_WEIGHT: ${SEARCH_SEM_WEIGHT:-0.5}
+      EMBED_TEXT_DIM: ${EMBED_TEXT_DIM:-768}
+      EMBED_DIM: ${EMBED_DIM:-1024}
+      # Query-embed-timeout: sidecaren delas med bakgrunds-bild-embedding (CPU-mättande ViT-L).
+      # Kort timeout → semantik hoppas snabbt över när sidecaren är upptagen (fallback lexikal,
+      # ~0,4s) i stället för att hänga. Semantik slår in när sidecaren är fri (samt när back-
+      # loggen är avbetad). Sök ska vara snabb; semantik är bonus.
+      SEARCH_QUERY_EMBED_TIMEOUT_MS: ${SEARCH_QUERY_EMBED_TIMEOUT_MS:-1000}
+      # Ruttoptimering: utan nyckel används OSRM:s publika demo (gratis, riktiga vägtider)
+      # och en lokal TSP-lösare. Lägg ORS_API_KEY (gratis på openrouteservice.org) för äkta
+      # tidsfönster-VRP, eller OSRM_URL för egen self-hostad OSRM. Tomt = publika defaults.
+      ORS_API_KEY: ${ORS_API_KEY:-}
+      OSRM_URL: ${OSRM_URL:-}
+      ROUTE_AVG_KMH: ${ROUTE_AVG_KMH:-70}
+      # Web Push: api serverar publik VAPID-nyckel + tar emot prenumerationer.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@allarop.local}
+    ports:
+      - "${API_PORT:-3000}:3000"
+    volumes:
+      - allarop-images:/app/data/images
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+volumes:
+  allarop-pgdata:
+  allarop-images:

@@ -1,0 +1,92 @@
+{
+ "results": [
+  {
+   "found": 167,
+   "hits": [
+    {
+     "document": {
+      "bids_count": 1,
+      "category": "Bygg & Hem",
+      "category_slug": "construction-home",
+      "end_time": 1782925380,
+      "group_id": "Sjöbo",
+      "id": "04e236eb-14bf-4b48-83fd-07c7396121ac",
+      "image_url": "https://images.vaxxa.se/215911/s=list/449856.jpg",
+      "is_reserve_met": true,
+      "is_vehicle": false,
+      "last_published": 1782120225,
+      "listing_type": "AUCTION",
+      "location_city": "Lövestad",
+      "location_country": "Sweden",
+      "location_county": "Sjöbo",
+      "location_state": "Skåne län",
+      "old_id": "215911",
+      "price": 100,
+      "sale_state": "IN_PROGRESS",
+      "service_type": "DEFAULT",
+      "subcategory": "Byggmaterial & Övriga Lagervaror",
+      "subcategory_id": "672",
+      "title": "Nya Blandade taksteg"
+     },
+     "highlight": {},
+     "highlights": []
+    },
+    {
+     "document": {
+      "bids_count": 0,
+      "category": "Bygg & Hem",
+      "category_slug": "construction-home",
+      "end_time": 1782925380,
+      "group_id": "Stiga trädgård",
+      "id": "b461c02e-e3a3-40f9-8236-e472b3613092",
+      "image_url": "https://images.vaxxa.se/214777/s=list/447206.jpg",
+      "is_reserve_met": false,
+      "is_vehicle": false,
+      "last_published": 1782289640,
+      "listing_type": "AUCTION",
+      "location_country": "Sweden",
+      "location_county": "Luleå",
+      "location_state": "Norrbottens län",
+      "old_id": "214777",
+      "price": 0,
+      "sale_state": "IN_PROGRESS",
+      "service_type": "DEFAULT",
+      "subcategory": "Trädgårdsmaskiner",
+      "subcategory_id": "1334",
+      "title": "STIGA EC 415 S Batteriladdare – ePower 48V-serien"
+     },
+     "highlight": {},
+     "highlights": []
+    },
+    {
+     "document": {
+      "bids_count": 0,
+      "category": "Fritid & Elektronik",
+      "category_slug": "leisure-electronics",
+      "end_time": 1782943140,
+      "id": "df17696e-c54c-442d-9ba7-d968c38dde15",
+      "image_url": "https://images.vaxxa.se/210051/s=list/441787.jpg",
+      "is_reserve_met": true,
+      "is_vehicle": true,
+      "last_published": 1780311844,
+      "listing_type": "BUY_NOW",
+      "location_city": "Luleå",
+      "location_country": "Sweden",
+      "location_county": "Luleå",
+      "location_state": "Norrbottens län",
+      "make": "Finnmaster 710",
+      "old_id": "210051",
+      "price": 160000,
+      "sale_state": "IN_PROGRESS",
+      "service_type": "SELF_SERVICE",
+      "subcategory": "Båt",
+      "subcategory_id": "483",
+      "title": "FINNMASTER 710"
+     },
+     "highlight": {},
+     "highlights": []
+    }
+   ]
+  }
+ ]
+}
