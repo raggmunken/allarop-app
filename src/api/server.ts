@@ -251,9 +251,15 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   if (url.pathname === "/" || url.pathname === "/index.html" || url.pathname === "/rutt" || url.pathname === "/priser") {
     return serveApp(res);
   }
-  // Juridiska sidor (publika): Om, Villkor, Integritetspolicy, Kontakt/takedown.
-  // Alla fyra serverar samma självständiga sida; klientskriptet scrollar till rätt avsnitt.
-  if (url.pathname === "/om" || url.pathname === "/villkor" || url.pathname === "/integritet" || url.pathname === "/kontakt") {
+  // Juridisk sida (publik): Om, Villkor, Integritetspolicy, Kontakt/takedown är EN sida
+  // med ankarsektioner. /om är kanonisk URL; de tre andra var tidigare separata paths som
+  // serverade identisk HTML (duplicate content) - redirecta dem till /om#<sektion> istället.
+  if (url.pathname === "/villkor" || url.pathname === "/integritet" || url.pathname === "/kontakt") {
+    res.writeHead(301, { location: `/om#${url.pathname.slice(1)}` });
+    res.end();
+    return;
+  }
+  if (url.pathname === "/om") {
     return serveHtmlFile(res, "juridik.html");
   }
 

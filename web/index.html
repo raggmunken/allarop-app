@@ -637,7 +637,7 @@
       <p class="sub">Sök, följ och jämför objekt från flera auktionssajter - med det verkliga totalpriset inklusive avgifter, inte bara budet.</p>
       <form class="search" id="searchForm" autocomplete="off">
         <span class="ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
-        <input id="q" name="q" placeholder="Sök t.ex. 3d-skrivare, grävmaskin, Kosta Boda…" />
+        <input id="q" name="q" aria-label="Sök bland alla auktioner" placeholder="Sök t.ex. 3d-skrivare, grävmaskin, Kosta Boda…" />
         <button type="submit">Sök</button>
       </form>
     </div>
@@ -652,7 +652,7 @@
           <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <div class="srcmenu" id="srcMenu" role="menu">
-          <div class="srcsearch" id="srcSearchWrap" hidden><input id="srcSearch" type="text" placeholder="Sök källa…" autocomplete="off" /></div>
+          <div class="srcsearch" id="srcSearchWrap" hidden><input id="srcSearch" type="text" aria-label="Sök auktionshus" placeholder="Sök källa…" autocomplete="off" /></div>
           <div class="srchead"><span class="lbl">Källor</span><button class="srcclear" id="srcClear" type="button" hidden>Rensa</button></div>
           <div class="srclist" id="srcList"></div>
         </div>
@@ -673,7 +673,7 @@
           <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
         </button>
         <div class="srcmenu" id="ortMenu" role="menu">
-          <div class="srcsearch"><input id="ortSearch" type="text" placeholder="Sök ort…" autocomplete="off" /></div>
+          <div class="srcsearch"><input id="ortSearch" type="text" aria-label="Sök ort" placeholder="Sök ort…" autocomplete="off" /></div>
           <div class="srchead"><span class="lbl">Ort</span><button class="srcclear" id="ortClear" type="button" hidden>Rensa</button></div>
           <div class="srclist" id="ortList"></div>
         </div>
@@ -755,9 +755,9 @@
       <div class="rp-grid">
         <div class="rp-form">
           <label class="rp-lbl">Startpunkt (adress eller ort)</label>
-          <input class="rp-in" id="rDepot" placeholder="t.ex. Sveavägen 1, Stockholm" autocomplete="off">
+          <input class="rp-in" id="rDepot" aria-label="Startadress för rutt" placeholder="t.ex. Sveavägen 1, Stockholm" autocomplete="off">
           <div class="rp-opts">
-            <span><label class="rp-lbl">Starttid</label><input class="rp-in rp-time" id="rStart" value="08:00"></span>
+            <span><label class="rp-lbl">Starttid</label><input class="rp-in rp-time" id="rStart" aria-label="Starttid för rutt" value="08:00"></span>
             <label class="rp-chk"><input type="checkbox" id="rReturn" checked> Åter till start</label>
           </div>
           <label class="rp-chk rp-auto"><input type="checkbox" id="rAuto"> Låt optimeraren välja starttid (så du hinner varje stopp inom öppettiderna)</label>
@@ -784,7 +784,7 @@
         </div>
       </div>
       <form id="plForm" class="plform" autocomplete="off">
-        <input class="rp-in" id="plQ" placeholder="t.ex. hjullastare, Kosta Boda, iPhone 13...">
+        <input class="rp-in" id="plQ" aria-label="Sök prisstatistik för objekt" placeholder="t.ex. hjullastare, Kosta Boda, iPhone 13...">
         <button class="rp-go plgo" type="submit">Slå upp</button>
       </form>
       <div id="plOut"></div>
@@ -837,7 +837,7 @@
       <span><i class="f-green"></i>&lt;5m</span><span><i class="f-blue"></i>5-15m</span><span><i class="f-orange"></i>15-60m</span><span><i class="f-red"></i>60m+</span>
     </span>
     <span class="footlinks">
-      <a href="/om">Om</a><a href="/villkor">Villkor</a><a href="/integritet">Integritet</a><a href="/kontakt">Kontakt</a>
+      <a href="/om">Om</a><a href="/om#villkor">Villkor</a><a href="/om#integritet">Integritet</a><a href="/om#kontakt">Kontakt</a>
       <a href="#" id="adminLink" class="admin-login-link">Logga in</a>
     </span>
     <span id="stat"></span>
@@ -850,7 +850,7 @@
       <h3>Logga in</h3>
       <p class="loginsub">Personliga funktioner (bevakning, notiser, ruttplanering, prisuppslag och driftstatus) kräver inloggning.</p>
       <form id="loginForm" autocomplete="on">
-        <input type="password" id="loginPw" placeholder="Lösenord" autocomplete="current-password">
+        <input type="password" id="loginPw" aria-label="Lösenord" placeholder="Lösenord" autocomplete="current-password">
         <button type="submit" id="loginGo">Logga in</button>
       </form>
       <div class="loginerr" id="loginErr" hidden></div>
