@@ -326,9 +326,14 @@
   .lightbox .lclose{top:24px;right:24px;width:46px;height:46px;font-size:22px}
   .lightbox .lcount{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);color:#fff;font-size:13px;opacity:.85}
   @media(max-width:768px){
-    .sheet{flex-direction:column;max-height:94vh}
+    /* En enda scrollyta (sheet) istället för fast bildhöjd + egen scrollruta för info -
+       nästlad scroll kändes styvt och lämnade för lite utrymme åt beskrivning/budhistorik.
+       94dvh (med 94vh-fallback) så adressfältet inte får layouten att räkna fel. */
+    .sheet{flex-direction:column;max-height:94vh;max-height:94dvh;overflow-y:auto}
     .viewer{flex:none;border-right:0;border-bottom:1px solid var(--line)}
-    .vmain{height:44vh}
+    .vmain{height:auto;aspect-ratio:4/3;padding:0}
+    .vthumbs{display:none} /* vcount ("1 / N") + vnav-pilarna räcker som positionsindikator */
+    .vinfo{flex:none;overflow-y:visible}
   }
   .dtitle{font-size:clamp(23px,2.4vw,30px);font-weight:700;line-height:1.14;letter-spacing:-.03em;margin-bottom:12px}
   .dmeta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
@@ -979,6 +984,9 @@ function attachCards(cards){
     let ht;
     c.addEventListener("mouseenter",()=>{ht=setTimeout(()=>prefetchDetail(c.dataset.house,c.dataset.id),120);});
     c.addEventListener("mouseleave",()=>clearTimeout(ht));
+    // Touch har ingen hover - starta samma förladdning redan vid touchstart (föregår
+    // alltid click/tap) så mobil får samma huvudstart som desktop-hover.
+    c.addEventListener("touchstart",()=>prefetchDetail(c.dataset.house,c.dataset.id),{passive:true});
   });
 }
 function renderCards(items, append){
@@ -1247,13 +1255,9 @@ async function openDetail(house,id){
     const bid=Number(it.current_bid??it.min_bid??0),total=Number(it.total_price??0),avg=Math.max(total-bid,0);
     const{txt}=countdownText(parseEnd(it.ends_at));
     const cc=it.currency;
-    // "Vad har liknande gått för?" - hämta prisstatistik (icke-blockerande fel).
-    let PSR=null; try{PSR=await (await fetch(`${API}/price-stats?house=${encodeURIComponent(house)}&id=${encodeURIComponent(id)}`)).json();}catch{}
-    PS_CUR={house,id};PS_DATA=PSR&&PSR.stats?PSR.stats:null;
-    const statsHTML=PS_DATA?`<div class="pstats" id="psbox">${psInner(PS_DATA,null,PSR.aiAvailable,false)}</div>`:"";
-    // Auto-AI-granskning: körs i bakgrunden efter render (cache-först → oftast gratis/
-    // omedelbar; nya par ~0,2 öre/st). Knappen finns kvar för manuell omkörning.
-    if(PS_DATA&&PSR.aiAvailable)setTimeout(()=>{if(PS_CUR&&PS_CUR.house===house&&PS_CUR.id===id)aiVerify();},80);
+    // "Vad har liknande gått för?" - prisstatistiken hämtas icke-blockerande (loadPriceStats
+    // nedan) efter render, så den aldrig fördröjer bild/titel/beskrivning/budhistorik.
+    const statsHTML=`<div id="psbox-wrap"></div>`;
     const bidsHTML=bids.length?bids.map(b=>`<div class="bidrow"><span class="amt num">${money(b.value,cc)}${b.type==="auto"?'<span class="auto">auto</span>':""}</span><span class="t">${b.bidder_name?b.bidder_name+" · ":""}${(b.created_at||"").replace("T"," ").slice(0,16)}</span></div>`).join(""):`<div class="bidrow"><span class="t">Inga bud ännu - utrop ${money(it.min_bid,cc)}.</span></div>`;
     const hasMany=GAL.length>1;
     const viewer=`<div class="viewer">
@@ -1329,7 +1333,20 @@ async function openDetail(house,id){
       </div>`;
     // Visuellt lika objekt (bild-embeddings) - laddas i bakgrunden, injiceras om träffar finns.
     loadVisualSimilar(house, id);
+    loadPriceStats(house, id);
   }catch(e){sheet.innerHTML=`<button class="mclose" onclick="closeModal()">×</button><div class="vinfo"><div class="vhouse">Fel</div><p>Kunde inte ladda objektet.</p></div>`;}
+}
+// "Vad har liknande gått för?" - hämtas efter render (aldrig blockerande för huvudvyn).
+// Injicerar i #psbox-wrap om objektet fortfarande visas när svaret kommer.
+async function loadPriceStats(house,id){
+  let PSR=null; try{PSR=await (await fetch(`${API}/price-stats?house=${encodeURIComponent(house)}&id=${encodeURIComponent(id)}`)).json();}catch{}
+  if(!(CUR_DETAIL&&CUR_DETAIL.house===house&&CUR_DETAIL.id===id))return; // användaren har öppnat ett annat objekt sedan dess
+  PS_CUR={house,id};PS_DATA=PSR&&PSR.stats?PSR.stats:null;
+  const wrap=document.getElementById("psbox-wrap");
+  if(wrap&&PS_DATA)wrap.outerHTML=`<div class="pstats" id="psbox">${psInner(PS_DATA,null,PSR.aiAvailable,false)}</div>`;
+  // Auto-AI-granskning: körs i bakgrunden efter render (cache-först → oftast gratis/
+  // omedelbar; nya par ~0,2 öre/st). Knappen finns kvar för manuell omkörning.
+  if(PS_DATA&&PSR.aiAvailable)setTimeout(()=>{if(PS_CUR&&PS_CUR.house===house&&PS_CUR.id===id)aiVerify();},80);
 }
 
 // Hämtar visuellt lika aktiva objekt (DINOv2) och renderar en miniatyr-rad i detaljvyn.

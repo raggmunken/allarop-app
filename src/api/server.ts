@@ -26,7 +26,7 @@ import {
 import { hasApiKey, verifySameObject } from "../ai/imageverify.ts";
 import { ItemAttrs } from "../db/similar.ts";
 import { loadVehicleData, regnrForItem } from "../vehicle/enrich.ts";
-import { decodeVec, embedImage, encodeVec } from "../ai/embed.ts";
+import { alprAvailable, decodeVec, embedImage, encodeVec } from "../ai/embed.ts";
 import { visualSimilar } from "../ai/visual-index.ts";
 import { semanticTopK } from "../ai/text-index.ts";
 import { expandQuery } from "../ai/search-expand.ts";
@@ -354,7 +354,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     // Visuell gate: målets embedding (lagrad); saknas den → embedda EN gång live och skriv
     // tillbaka (best-effort, aldrig blockerande) så interaktiva öppningar snabbt får gaten.
     let targetEmbedding = decodeVec(row.emb);
-    if (targetEmbedding == null && row.image != null) {
+    if (targetEmbedding == null && row.image != null && (await alprAvailable())) {
       // KORT timeout (1,5s): live-embeddingen får ALDRIG hänga detaljvyn på en upptagen
       // sidecar (DINOv3 bakgrunds-embed). Timeout → targetEmbedding null → gaten hoppas
       // (missing-safe); objektet embeddas ändå av bakgrundspasset snart.
