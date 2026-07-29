@@ -941,7 +941,7 @@ function cardHTML(it, eager){
   // Förstaradens (ovan vikningen) bilder laddas ivrigt + hög prioritet så de syns direkt;
   // resten lat-laddas när de scrollas in.
   const la=eager?`loading="eager" fetchpriority="high"`:`loading="lazy"`;
-  const img=it.image?`<img ${la} decoding="async" src="${it.image}" alt="" onerror="this.parentNode.innerHTML='<div class=&quot;noimg&quot;>ingen bild</div>'"/>`:`<div class="noimg">ingen bild</div>`;
+  const img=it.image?`<img ${la} decoding="async" src="${it.image}" alt="${esc(it.title||"")}" onerror="this.parentNode.innerHTML='<div class=&quot;noimg&quot;>ingen bild</div>'"/>`:`<div class="noimg">ingen bild</div>`;
   // Underliggande hus (t.ex. Auctionet-medlem) visas bara när det skiljer sig
   // från plattformen - klickbart för att filtrera på just det huset.
   const sub = it.seller && it.seller!==houseName(it.house)

@@ -242,6 +242,26 @@ setInterval(poll, 10000);
 
 async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const url = new URL(req.url ?? "/", "http://localhost");
+
+  // Kanonisering: www → apex, trailing slash bort (utom roten "/"). x-forwarded-host
+  // speglar den riktiga Host-headern (satt av gateway, se gateway/index.js) - http→https
+  // hanteras separat av Cloudflares "Always Use HTTPS"-zoninställning, eftersom
+  // x-forwarded-proto genom tunneln alltid är "https" och inte går att lita på här.
+  // Utan detta svarade http/www/trailing-slash alla 200 (4 dubblettversioner av
+  // varje sida) - bekräftat av SEO-audit 2026-07-29.
+  {
+    const fwdHost = ((req.headers["x-forwarded-host"] as string) || req.headers.host || "").split(":")[0];
+    let path = url.pathname;
+    let redirect = false;
+    if (fwdHost === "www.allarop.se") redirect = true;
+    if (path.length > 1 && path.endsWith("/")) { path = path.replace(/\/+$/, ""); redirect = true; }
+    if (redirect) {
+      res.writeHead(301, { location: `https://allarop.se${path}${url.search}` });
+      res.end();
+      return;
+    }
+  }
+
   const parts = url.pathname.split("/").filter(Boolean);
 
   // Global grovsäkring per IP (generös): stoppar hamring men stör aldrig normal användning
@@ -250,6 +270,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   if (!isAsset && !rateLimit(req, res, "global", 600, 60_000)) return;
 
   if (url.pathname === "/" || url.pathname === "/index.html") {
+    // Sök-/filter-URL:er (?q=, ?house=, ?category= osv) är tunt/dubblettinnehåll av samma
+    // SPA-skal - oändligt många nästan-identiska sidor späder ut sajtkvaliteten i Googles
+    // ögon. noindex via header, men follow så länkar från sökresultat ändå upptäcks.
+    if (url.search) return serveApp(res, { "x-robots-tag": "noindex, follow" });
     return serveApp(res);
   }
   // Ruttplanerare/prisuppslag: interna verktyg, redan låsta bakom admin-inlogg i klienten
