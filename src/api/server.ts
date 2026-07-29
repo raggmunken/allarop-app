@@ -58,7 +58,7 @@ const SECURITY_HEADERS: Record<string, string> = {
   "referrer-policy": "strict-origin-when-cross-origin",
 };
 
-async function serveHtmlFile(res: ServerResponse, file: string): Promise<void> {
+async function serveHtmlFile(res: ServerResponse, file: string, extraHeaders?: Record<string, string>): Promise<void> {
   try {
     const html = await readFile(join(WEB_DIR, file));
     // no-store: HTML:en bär all inline-JS/CSS och byts vid varje ombygge → aldrig cacha,
@@ -67,6 +67,7 @@ async function serveHtmlFile(res: ServerResponse, file: string): Promise<void> {
       "content-type": "text/html; charset=utf-8",
       "cache-control": "no-store, must-revalidate",
       ...SECURITY_HEADERS,
+      ...extraHeaders,
     });
     res.end(html);
   } catch {
@@ -75,8 +76,8 @@ async function serveHtmlFile(res: ServerResponse, file: string): Promise<void> {
   }
 }
 
-function serveApp(res: ServerResponse): Promise<void> {
-  return serveHtmlFile(res, "index.html");
+function serveApp(res: ServerResponse, extraHeaders?: Record<string, string>): Promise<void> {
+  return serveHtmlFile(res, "index.html", extraHeaders);
 }
 
 /** Läs hela request-body:n (max 256 kB) som text. */
@@ -248,8 +249,15 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const isAsset = url.pathname === "/sw.js" || url.pathname === "/favicon.png";
   if (!isAsset && !rateLimit(req, res, "global", 600, 60_000)) return;
 
-  if (url.pathname === "/" || url.pathname === "/index.html" || url.pathname === "/rutt" || url.pathname === "/priser") {
+  if (url.pathname === "/" || url.pathname === "/index.html") {
     return serveApp(res);
+  }
+  // Ruttplanerare/prisuppslag: interna verktyg, redan låsta bakom admin-inlogg i klienten
+  // (showAdminGate). Ingen publik länk pekar hit och de ska inte indexeras/synas i sök -
+  // noindex via HTTP-header (funkar oavsett JS-rendering, till skillnad från en meta-tagg
+  // som skulle krävt path-specifik HTML). Fortsatt nåbara om man skriver URL:en direkt.
+  if (url.pathname === "/rutt" || url.pathname === "/priser") {
+    return serveApp(res, { "x-robots-tag": "noindex, nofollow" });
   }
   // Juridisk sida (publik): Om, Villkor, Integritetspolicy, Kontakt/takedown är EN sida
   // med ankarsektioner. /om är kanonisk URL; de tre andra var tidigare separata paths som
