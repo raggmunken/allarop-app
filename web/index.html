@@ -1190,7 +1190,25 @@ async function aiVerify(){
     else if(PS_DATA)box.innerHTML=psInner(PS_DATA,null,true,false);
   }catch{if(PS_DATA)box.innerHTML=psInner(PS_DATA,null,true,false);}
 }
-function closeModal(){document.getElementById("modal").classList.remove("open");document.getElementById("scrim").classList.remove("open");}
+// Adressraden speglar den redan existerande, indexerbara /objekt/<hus>/<id>-sidan medan
+// modalen är öppen - vilket gör VARJE objekt delbart genom att bara kopiera adressraden,
+// utan att bygga en separat länk-mekanism. history.back() (inte en ny pushState) vid stängning
+// så bakåtknappen fungerar naturligt (popstate nedan stänger modalen utan att stega igen).
+function closeModal(fromPopstate){
+  document.getElementById("modal").classList.remove("open");
+  document.getElementById("scrim").classList.remove("open");
+  if(!fromPopstate&&history.state&&history.state.objModal)history.back();
+}
+window.addEventListener("popstate",(e)=>{
+  if(!(e.state&&e.state.objModal))closeModal(true);
+});
+async function shareCurrentObject(){
+  if(!CUR_DETAIL)return;
+  const url=`${location.origin}/objekt/${encodeURIComponent(CUR_DETAIL.house)}/${encodeURIComponent(CUR_DETAIL.id)}`;
+  if(navigator.share){try{await navigator.share({title:CUR_DETAIL.title||"Allarop",url});return;}catch{return;}}
+  try{await navigator.clipboard.writeText(url);toast("Länk kopierad");}
+  catch{toast(url);}
+}
 function setImg(i){
   if(!GAL.length)return; GIDX=(i+GAL.length)%GAL.length;
   const im=document.getElementById("vimg"); if(im){im.src=GAL[GIDX];im.style.opacity="";}
@@ -1268,6 +1286,7 @@ async function openDetail(house,id){
     if(!d){ const r=await fetch(`${API}/items/${house}/${id}`); d=await r.json(); }
     const it=d.item,media=d.media||[],bids=d.bids||[];
     CUR_DETAIL={house,id,title:it.title||"",location:it.location||""};
+    history.pushState({objModal:true},"",`/objekt/${encodeURIComponent(house)}/${encodeURIComponent(id)}`);
     GAL=media.filter(m=>m.kind==="image").map(m=>m.url);
     const bid=Number(it.current_bid??it.min_bid??0),total=Number(it.total_price??0),avg=Math.max(total-bid,0);
     const{txt}=countdownText(parseEnd(it.ends_at));
@@ -1347,6 +1366,7 @@ async function openDetail(house,id){
         ${(()=>{if(!IS_ADMIN)return "";const k=house+"/"+id,on=WATCHED.has(k),e=String(id).replace(/'/g,"\\'");
           return `<button class="rp-addbtn wbtn${on?" added":""}" data-w="${esc(k)}" onclick="toggleWatch('${house}','${e}')">${on?"★ Bevakas - du får notis vid förändringar":"☆ Bevaka objektet"}</button>`;})()}
         <button class="rp-addbtn" onclick="addCurrentToRoute()">🚚 Lägg till i rutt</button>
+        <button class="rp-addbtn" onclick="shareCurrentObject()">🔗 Dela objekt</button>
       </div>`;
     // Visuellt lika objekt (bild-embeddings) - laddas i bakgrunden, injiceras om träffar finns.
     loadVisualSimilar(house, id);
