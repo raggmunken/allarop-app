@@ -984,9 +984,16 @@ function attachCards(cards){
     let ht;
     c.addEventListener("mouseenter",()=>{ht=setTimeout(()=>prefetchDetail(c.dataset.house,c.dataset.id),120);});
     c.addEventListener("mouseleave",()=>clearTimeout(ht));
-    // Touch har ingen hover - starta samma förladdning redan vid touchstart (föregår
-    // alltid click/tap) så mobil får samma huvudstart som desktop-hover.
-    c.addEventListener("touchstart",()=>prefetchDetail(c.dataset.house,c.dataset.id),{passive:true});
+    // Touch har ingen hover - samma 120ms-avsiktsfördröjning som mouseenter ovan, men
+    // avbryts om fingret rör sig >10px (då är det en scroll, inte ett tryck). Ren
+    // touchstart-prefetch utan detta eldade på VARJE kort man rörde vid när man bara
+    // scrollade griden - flödade mobilnätet med onödiga fetchar (regression 2026-07-29).
+    let tt,tx=0,ty=0;
+    c.addEventListener("touchstart",(e)=>{const t=e.touches[0];tx=t.clientX;ty=t.clientY;
+      tt=setTimeout(()=>prefetchDetail(c.dataset.house,c.dataset.id),120);},{passive:true});
+    c.addEventListener("touchmove",(e)=>{const t=e.touches[0];
+      if(Math.abs(t.clientX-tx)>10||Math.abs(t.clientY-ty)>10)clearTimeout(tt);},{passive:true});
+    c.addEventListener("touchend",()=>clearTimeout(tt),{passive:true});
   });
 }
 function renderCards(items, append){
@@ -1191,6 +1198,16 @@ function setImg(i){
   document.querySelectorAll("#vthumbs img").forEach((t,i2)=>t.classList.toggle("on",i2===GIDX));
 }
 function vStep(d){setImg(GIDX+d);}
+// Svep på huvudbilden (mobil) - byter bild precis som vnav-pilarna. Tidigare fanns bara
+// pilarna kvar sedan tumnagelraden doldes på mobil, vilket gjorde flerbildsobjekt svåra
+// att upptäcka (regression 2026-07-29). Ett rent tryck (litet rörelse) öppnar fortfarande
+// lightboxen via onclick; bara ett tydligt sidledes svep tolkas som bildbyte.
+let _swX=0,_swY=0,_swiping=false;
+function vTouchStart(e){const t=e.touches[0];_swX=t.clientX;_swY=t.clientY;_swiping=false;}
+function vTouchMove(e){const t=e.touches[0],dx=t.clientX-_swX,dy=t.clientY-_swY;
+  if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>10){_swiping=true;e.preventDefault();}}
+function vTouchEnd(e){if(!_swiping)return;const t=e.changedTouches[0],dx=t.clientX-_swX;
+  if(Math.abs(dx)>40)vStep(dx<0?1:-1);_swiping=false;}
 function openLightbox(){
   if(!GAL.length)return;
   const lb=document.getElementById("lightbox");
@@ -1261,7 +1278,7 @@ async function openDetail(house,id){
     const bidsHTML=bids.length?bids.map(b=>`<div class="bidrow"><span class="amt num">${money(b.value,cc)}${b.type==="auto"?'<span class="auto">auto</span>':""}</span><span class="t">${b.bidder_name?b.bidder_name+" · ":""}${(b.created_at||"").replace("T"," ").slice(0,16)}</span></div>`).join(""):`<div class="bidrow"><span class="t">Inga bud ännu - utrop ${money(it.min_bid,cc)}.</span></div>`;
     const hasMany=GAL.length>1;
     const viewer=`<div class="viewer">
-      <div class="vmain" onclick="openLightbox()">
+      <div class="vmain" onclick="openLightbox()"${hasMany?` ontouchstart="vTouchStart(event)" ontouchmove="vTouchMove(event)" ontouchend="vTouchEnd(event)"`:""}>
         ${hasMany?`<button class="vnav prev" onclick="event.stopPropagation();vStep(-1)">‹</button>`:""}
         ${GAL.length?`<img id="vimg" src="${GAL[0]}" onerror="this.style.opacity=.2"/>`:`<div class="noimg" style="color:var(--ink-faint)">ingen bild</div>`}
         ${hasMany?`<button class="vnav next" onclick="event.stopPropagation();vStep(1)">›</button>`:""}

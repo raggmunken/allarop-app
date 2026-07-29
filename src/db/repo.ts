@@ -166,6 +166,18 @@ export async function upsertMedia(
   ownerExternalId: string,
   media: NormalizedMedia[],
 ): Promise<void> {
+  // Tomt = ingen ny info (t.ex. ett tillfälligt scrape-fel) - rör INTE befintliga rader.
+  // Skulle annars kunna radera en redan sparad galleri om ett enskilt pollvarv misslyckas.
+  if (!media.length) return;
+  // Ta bort rader som inte längre finns i den nya listan - t.ex. en Typesense-s=list-
+  // platshållare (Vaxxa) som ska ERSÄTTAS av s=full-galleriet vid berikning. UPSERT nedan
+  // lägger bara till/uppdaterar, aldrig bort, så platshållaren låg annars kvar för alltid
+  // och visades i detaljvyn som "samma bild" bredvid de riktiga (bekräftat 2026-07-29).
+  await pool.query(
+    `DELETE FROM media WHERE house=$1 AND owner_type=$2 AND owner_external_id=$3
+       AND NOT (url = ANY($4::text[]))`,
+    [house, ownerType, ownerExternalId, media.map((m) => m.url)],
+  );
   for (const m of media) {
     await pool.query(
       `INSERT INTO media (house, owner_type, owner_external_id, kind, url, sort)
