@@ -92,9 +92,13 @@ export class KronofogdenConnector implements FlatSource {
     return {
       items: items.map((it) => {
         const det = this.detail.get(it.objId) ?? null;
+        const mapped = mapItem(it, det);
+        // Redan berikat i DB men ej om-hämtat detta körvarv (t.ex. efter omstart):
+        // lämna media tom så upsertMedia inte raderar det sparade galleriet (tom = rör ej).
+        if (!det?.images?.length && (this.enrichedInDb?.has(it.objId) ?? false)) mapped.media = [];
         return {
           auction: mapAuction(it, det),
-          item: mapItem(it, det),
+          item: mapped,
           bids: [], // budgivare anonyma → inga bud-rader
         };
       }),
@@ -116,7 +120,11 @@ export class KronofogdenConnector implements FlatSource {
     for (const id of externalIds) {
       const it = this.cache.get(id);
       if (!it) continue; // ej i listan längre → backstop finaliserar
-      out.set(id, { item: mapItem(it, this.detail.get(id) ?? null), bids: [] });
+      const det = this.detail.get(id) ?? null;
+      const mapped = mapItem(it, det);
+      // Se fetchPage: redan berikat i DB → rör inte sparat galleri efter omstart.
+      if (!det?.images?.length && (this.enrichedInDb?.has(it.objId) ?? false)) mapped.media = [];
+      out.set(id, { item: mapped, bids: [] });
     }
     return out;
   }

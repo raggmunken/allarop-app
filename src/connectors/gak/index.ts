@@ -89,9 +89,13 @@ export class GakConnector implements FlatSource {
         const d: GakDetail | null = fetched
           ? { ...fetched, fee: fetched.fee ?? this.feeSeed!.get(it.id) ?? null }
           : this.feeSeed!.has(it.id)
-            ? { description: null, fee: this.feeSeed!.get(it.id)! }
+            ? { description: null, fee: this.feeSeed!.get(it.id)!, images: [] }
             : null;
-        return { auction: mapAuction(it, this.cfg, d), item: mapItem(it, this.cfg, d), bids: [] };
+        const mapped = mapItem(it, this.cfg, d);
+        // Redan berikat i DB men ej om-hämtat detta körvarv (t.ex. efter omstart):
+        // lämna media tom så upsertMedia inte raderar det sparade galleriet (tom = rör ej).
+        if (!d?.images?.length && (this.enrichedInDb?.has(it.id) ?? false)) mapped.media = [];
+        return { auction: mapAuction(it, this.cfg, d), item: mapped, bids: [] };
       }),
       currentPage: page,
       totalPages,

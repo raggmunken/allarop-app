@@ -88,6 +88,25 @@ async function get(path: string): Promise<string> {
   return res.text();
 }
 
+/** Hela galleriet ur objektsidan (detail.asp): imagebank-thumbs → medium-storlek.
+ * URL:erna är antingen /imagebank/thumbs/{a}/{GUID}.jpg eller /imagebank/medium/{a}/%7BGUID%7D.jpg
+ * — normalisera till medium med URL-kodad GUID, dedup på GUID, ordning bevarad. */
+export function parseGallery(html: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of html.matchAll(/imagebank\/(?:thumbs|medium|large)\/\d+\/([^"'\s]+?\.(?:jpe?g|png|webp))/gi)) {
+    const guid = m[1]!
+      .replace(/\.(jpe?g|png|webp)$/i, "")
+      .replace(/%7B|{|%7D|}/gi, "")
+      .toUpperCase();
+    if (!guid || seen.has(guid)) continue;
+    seen.add(guid);
+    const sub = /imagebank\/(?:thumbs|medium|large)\/(\d+)\//i.exec(m[0])?.[1] ?? "1001";
+    out.push(`${BASE}/imagebank/medium/${sub}/%7B${guid}%7D.jpg`);
+  }
+  return out;
+}
+
 export class MetropolClient {
   /** Hela aktiva katalogen: unionen av toppkategoriernas product-cards (dedupe på id). */
   async fetchAll(): Promise<MetropolItem[]> {
@@ -101,5 +120,14 @@ export class MetropolClient {
       }
     }
     return [...byId.values()];
+  }
+
+  /** Objektsidan (/go/{a}/{id} → detail.asp) EN gång per objekt → galleriet. */
+  async fetchDetail(goPath: string): Promise<{ images: string[] } | null> {
+    try {
+      return { images: parseGallery(await get(goPath)) };
+    } catch {
+      return null;
+    }
   }
 }

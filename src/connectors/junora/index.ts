@@ -82,7 +82,11 @@ export class JunoraConnector implements FlatSource {
     return {
       items: items.map((it) => {
         const det = this.detail.get(it.remoteId) ?? null;
-        return { auction: mapAuction(it, det), item: mapItem(it, det), bids: [] };
+        const mapped = mapItem(it, det);
+        // Redan berikat i DB men ej om-hämtat detta körvarv (t.ex. efter omstart):
+        // lämna media tom så upsertMedia inte raderar det sparade galleriet (tom = rör ej).
+        if (!det?.images?.length && (this.enrichedInDb?.has(it.remoteId) ?? false)) mapped.media = [];
+        return { auction: mapAuction(it, det), item: mapped, bids: [] };
       }),
       currentPage: page,
       totalPages,

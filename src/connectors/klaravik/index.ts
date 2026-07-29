@@ -115,6 +115,10 @@ export class KlaravikConnector implements FlatSource {
         const item = mapItem(it, undefined, c?.description ?? null);
         if (c?.images.length) {
           item.media = c.images.map((url, i): NormalizedMedia => ({ kind: "image", url, sort: i + 1 }));
+        } else if (this.enrichedInDb?.has(String(it.id))) {
+          // Redan berikat i DB men ej om-hämtat detta körvarv (t.ex. efter omstart):
+          // lämna media tom så upsertMedia inte raderar det sparade galleriet (tom = rör ej).
+          item.media = [];
         }
         return {
           auction: mapAuction(it),
@@ -145,6 +149,15 @@ export class KlaravikConnector implements FlatSource {
       endDate: d.endUnix != null ? new Date(d.endUnix * 1000).toISOString() : cached.endDate,
       ended: d.ended,
     };
-    return { item: mapItem(merged, d.vat), bids: [] };
+    const item = mapItem(merged, d.vat);
+    // Galleri: återanvänd berikat innehåll om vi har det; annars rör inte DB-galleriet
+    // för redan berikade objekt (annars skulle hot-pollen skriva över med huvudbilden).
+    const c = this.content.get(String(cached.id));
+    if (c?.images.length) {
+      item.media = c.images.map((url, i): NormalizedMedia => ({ kind: "image", url, sort: i + 1 }));
+    } else if (this.enrichedInDb?.has(String(cached.id))) {
+      item.media = [];
+    }
+    return { item, bids: [] };
   }
 }

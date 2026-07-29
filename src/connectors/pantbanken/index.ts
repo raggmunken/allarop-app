@@ -37,7 +37,7 @@ export class PantbankenConnector implements FlatSource {
   readonly hasEndedArchive = false; // historik via finalizePastDue (arkivet är enormt)
   readonly endingSortedFirst = true; // listan sorterad slutar-snart-först
   private readonly client = new PantbankenClient();
-  private readonly details = new Map<string, string | null>();
+  private readonly details = new Map<string, { description: string | null; images: string[] } | null>();
   private enrichedInDb: Set<string> | null = null;
 
   constructor(private readonly opts: PantbankenConnectorOpts = {}) {}
@@ -60,11 +60,18 @@ export class PantbankenConnector implements FlatSource {
     });
 
     return {
-      items: items.map((it) => ({
-        auction: mapAuction(it),
-        item: mapItem(it, this.details.get(it.id) ?? null),
-        bids: [],
-      })),
+      items: items.map((it) => {
+        const det = this.details.get(it.id) ?? null;
+        const mapped = mapItem(it, det);
+        // Redan berikat i DB men ej om-hämtat detta körvarv (t.ex. efter omstart):
+        // lämna media tom så upsertMedia inte raderar det sparade galleriet (tom = rör ej).
+        if (!det?.images?.length && (this.enrichedInDb?.has(it.id) ?? false)) mapped.media = [];
+        return {
+          auction: mapAuction(it),
+          item: mapped,
+          bids: [],
+        };
+      }),
       currentPage: page,
       totalPages: Math.max(1, Math.ceil(total / perPage)),
       totalEntries: total,

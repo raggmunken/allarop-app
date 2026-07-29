@@ -49,7 +49,7 @@ import { VaxxaConnector, HOUSE as HOUSE_VAXXA } from "./connectors/vaxxa/index.t
 import { AuktionaConnector, HOUSE as HOUSE_AUKTIONA } from "./connectors/auktiona/index.ts";
 import { feeModelFor } from "./fees/rules.ts";
 import { closePool, initSchema } from "./db/pool.ts";
-import { enrichedItemIds, loadRawItems, priceHistory, rawFieldSeed, searchItems, upsertHouse } from "./db/repo.ts";
+import { enrichedItemIds, galleryEnrichedItemIds, loadRawItems, priceHistory, rawFieldSeed, searchItems, upsertHouse } from "./db/repo.ts";
 import { llmClassifyPass, visionClassifyBulk } from "./ai/classify-llm.ts";
 import { ingestAll, ingestFlat } from "./scheduler/pipeline.ts";
 import { backfillEndedBatch } from "./scheduler/backfill.ts";
@@ -299,7 +299,9 @@ async function main(): Promise<void> {
           loadFees: () => rawFieldSeed(h.house, ["detail", "fee"]),
         })),
         // Metropol: ASP-sajt, katalog per kategori (product-cards.html), kort bär allt.
-        new MetropolConnector(),
+        // Galleri (imagebank) berikas gradvis per objektsida. Skip-signalen är
+        // galleri-baserad (korten bär redan beskrivning → enrichedItemIds täcker allt).
+        new MetropolConnector({ loadEnriched: () => galleryEnrichedItemIds(HOUSE_METROPOL) }),
         // Pantbanken: pantauktioner (SSR), offset/length-paginering. Kort bär bud + budledare.
         // Beskrivning (Objektinformation-tabellen) berikas gradvis per objektsida.
         new PantbankenConnector({ loadEnriched: () => enrichedItemIds(HOUSE_PANTBANKEN) }),

@@ -24,11 +24,18 @@ export function mapAuction(it: PantItem): NormalizedAuction {
   };
 }
 
-function mapMedia(it: PantItem): NormalizedMedia[] {
-  return it.image ? [{ kind: "image", url: it.image, sort: 1 }] : [];
+export interface PantDetail {
+  description: string | null;
+  images: string[];
 }
 
-export function mapItem(it: PantItem, description: string | null = null, now = new Date()): NormalizedItem {
+function mapMedia(it: PantItem, detail: PantDetail | null): NormalizedMedia[] {
+  // Berikat galleri (objektsidans imagehandler-bilder) om det finns; annars kortets bild.
+  const urls = detail?.images?.length ? detail.images : it.image ? [it.image] : [];
+  return urls.map((url, i) => ({ kind: "image", url, sort: i + 1 }));
+}
+
+export function mapItem(it: PantItem, detail: PantDetail | null = null, now = new Date()): NormalizedItem {
   const endedByTime = it.endsAt != null && new Date(it.endsAt).getTime() <= now.getTime();
   return {
     house: HOUSE,
@@ -36,7 +43,7 @@ export function mapItem(it: PantItem, description: string | null = null, now = n
     partExternalId: it.id,
     auctionExternalId: it.id,
     title: it.title,
-    description, // Objektinformation-tabellen (berikas gradvis; upsertens COALESCE bevarar)
+    description: detail?.description ?? null, // Objektinformation-tabellen (berikas gradvis; upsertens COALESCE bevarar)
     location: null,
     status: endedByTime ? "ended" : "active",
     endsAt: it.endsAt,
@@ -50,7 +57,7 @@ export function mapItem(it: PantItem, description: string | null = null, now = n
     currency: "SEK",
     seller: "Pantbanken Sverige",
     listedAt: null,
-    media: mapMedia(it),
+    media: mapMedia(it, detail),
     sourceUrl: sourceUrl(it),
     raw: { item: it } as unknown as RawPayload,
   };

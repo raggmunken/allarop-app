@@ -80,9 +80,13 @@ export class NetauktionConnector implements FlatSource {
       items: items.map((it) => {
         const st = status.get(it.productId) ?? null;
         const det = this.detail.get(it.productId) ?? null;
+        const mapped = mapItem(it, st, det);
+        // Redan berikat i DB men ej om-hämtat detta körvarv (t.ex. efter omstart):
+        // lämna media tom så upsertMedia inte raderar det sparade galleriet (tom = rör ej).
+        if (!det?.images?.length && (this.enrichedInDb?.has(it.productId) ?? false)) mapped.media = [];
         return {
           auction: mapAuction(it, det),
-          item: mapItem(it, st, det),
+          item: mapped,
           bids: mapBids(it, st),
         };
       }),

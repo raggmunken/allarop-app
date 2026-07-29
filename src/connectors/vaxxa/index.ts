@@ -105,7 +105,15 @@ export class VaxxaConnector implements FlatSource {
     }
 
     return {
-      items: items.map((it) => ({ auction: mapAuction(it), item: mapItem(it), bids: [] })),
+      items: items.map((it) => {
+        const mapped = mapItem(it);
+        // Redan berikat i DB men ej om-hämtat detta körvarv (t.ex. efter omstart):
+        // lämna media tom så upsertMedia inte raderar det sparade galleriet (tom = rör ej).
+        if (!this.details.get(it.externalId)?.images?.length && (this.enrichedInDb?.has(it.externalId) ?? false)) {
+          mapped.media = [];
+        }
+        return { auction: mapAuction(it), item: mapped, bids: [] };
+      }),
       currentPage: page,
       totalPages: Math.max(1, Math.ceil(found / perPage)),
       totalEntries: found,

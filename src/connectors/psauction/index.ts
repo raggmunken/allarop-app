@@ -111,9 +111,13 @@ export class PSAuctionConnector implements FlatSource {
     return {
       items: items.map((it) => {
         const det = this.detail.get(it.itemId) ?? null;
+        const mapped = mapItem(it, det);
+        // Redan berikat i DB men ej om-hämtat detta körvarv (t.ex. efter omstart):
+        // lämna media tom så upsertMedia inte raderar det sparade galleriet (tom = rör ej).
+        if (!det?.images?.length && (this.enrichedInDb?.has(it.itemId) ?? false)) mapped.media = [];
         return {
           auction: mapAuction(it, det),
-          item: mapItem(it, det),
+          item: mapped,
           bids: [], // budhistorik hämtas i hett-poll (fetchItems) ur /item/json
         };
       }),
@@ -141,8 +145,12 @@ export class PSAuctionConnector implements FlatSource {
       .catch(() => new Map());
     for (const it of items) {
       const lv = live.get(it.liveId) ?? null;
+      const det = this.detail.get(it.itemId) ?? null;
+      const mapped = mapItem(it, det, lv);
+      // Se fetchPage: redan berikat i DB → rör inte sparat galleri efter omstart.
+      if (!det?.images?.length && (this.enrichedInDb?.has(it.itemId) ?? false)) mapped.media = [];
       out.set(it.itemId, {
-        item: mapItem(it, this.detail.get(it.itemId) ?? null, lv),
+        item: mapped,
         bids: mapBids(it, lv),
       });
     }

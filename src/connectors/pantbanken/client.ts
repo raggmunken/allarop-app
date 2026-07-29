@@ -125,6 +125,17 @@ async function get(path: string): Promise<string> {
   return res.text();
 }
 
+/** Hela galleriet ur objektsidan (imagehandler-URL:er), dedup + ordning. */
+export function parseGallery(html: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const m of html.matchAll(/https:\/\/imagehandler\.pantbanken\.se\/varubilder\/[^\s"'<>]+\.(?:jpe?g|png|webp)/gi)) {
+    const u = m[0];
+    if (!seen.has(u)) { seen.add(u); out.push(u); }
+  }
+  return out;
+}
+
 export class PantbankenClient {
   /** En listsida: objekt + totalt antal (offset/length-paginering, length ≤ 500). */
   async fetchListing(page: number, perPage: number): Promise<{ items: PantItem[]; total: number }> {
@@ -133,10 +144,12 @@ export class PantbankenClient {
     return parseListing(await get(`/auktioner/?offset=${offset}&length=${length}`));
   }
 
-  /** Objektsidan EN gång per objekt → Objektinformation-tabellen som beskrivning. */
-  async fetchDetail(fId: string): Promise<string | null> {
+  /** Objektsidan EN gång per objekt → Objektinformation-tabellen som beskrivning
+   * + hela galleriet (imagehandler-bilderna). */
+  async fetchDetail(fId: string): Promise<{ description: string | null; images: string[] } | null> {
     try {
-      return parseItemInfo(await get(`/auktioner/visa-auktionsvara/?f_id=${fId}`));
+      const html = await get(`/auktioner/visa-auktionsvara/?f_id=${fId}`);
+      return { description: parseItemInfo(html), images: parseGallery(html) };
     } catch {
       return null;
     }

@@ -103,6 +103,8 @@ export interface GakFee {
 export interface GakDetail {
   description: string | null;
   fee: GakFee | null;
+  /** Hela galleriet ur detaljsidan (lozad data-src), relativa sökvägar i ordning. */
+  images: string[];
 }
 
 /** Ren parser: detaljsidans HTML → beskrivning + avgiftsattribut. */
@@ -120,7 +122,22 @@ export function parseDetail(html: string): GakDetail {
     pf != null && Number.isFinite(pf)
       ? { purchaseFeePct: pf, auctionFeeKr: af ?? 0, itemVatRate: iv ?? 0 }
       : null;
-  return { description: m ? decode(m[1]!) || null : null, fee };
+  // Galleri: huvudbilden (itemprop="image" src, medium{N}.jpg) + lozad-thumbnails
+  // (data-src, {N}.jpg). Samma CMS på båda husen (gak/auktionskammaren). Dedup på
+  // bildnummer (medium{N}.jpg och {N}.jpg är samma foto) + ordning; huvudbilden först.
+  const main = /<img[^>]+itemprop="image"[^>]+src="([^"]+)"/i.exec(html)?.[1] ?? null;
+  const seen = new Set<string>();
+  const images: string[] = [];
+  const push = (u: string | null) => {
+    if (!u) return;
+    const num = /(\d+)\.(?:jpe?g|png|webp)$/i.exec(u)?.[1] ?? u;
+    if (seen.has(num)) return;
+    seen.add(num);
+    images.push(u);
+  };
+  push(main);
+  for (const dm of html.matchAll(/<img[^>]+data-src="([^"]*AuctionItem[^"]+)"/gi)) push(dm[1]!);
+  return { description: m ? decode(m[1]!) || null : null, fee, images };
 }
 
 export class GakClient {

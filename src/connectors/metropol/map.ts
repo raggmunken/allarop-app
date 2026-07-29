@@ -22,11 +22,17 @@ export function mapAuction(it: MetropolItem): NormalizedAuction {
   };
 }
 
-function mapMedia(it: MetropolItem): NormalizedMedia[] {
-  return it.image ? [{ kind: "image", url: it.image, sort: 1 }] : [];
+export interface MetropolDetail {
+  images: string[];
 }
 
-export function mapItem(it: MetropolItem, now = new Date()): NormalizedItem {
+function mapMedia(it: MetropolItem, detail: MetropolDetail | null): NormalizedMedia[] {
+  // Berikat galleri (objektsidans imagebank-bilder) om det finns; annars kortets bild.
+  const urls = detail?.images?.length ? detail.images : it.image ? [it.image] : [];
+  return urls.map((url, i) => ({ kind: "image", url, sort: i + 1 }));
+}
+
+export function mapItem(it: MetropolItem, detail: MetropolDetail | null = null, now = new Date()): NormalizedItem {
   const endedByTime = it.endsAt != null && new Date(it.endsAt).getTime() <= now.getTime();
   return {
     house: HOUSE,
@@ -47,7 +53,7 @@ export function mapItem(it: MetropolItem, now = new Date()): NormalizedItem {
     currency: "SEK",
     seller: "Metropol Auktioner",
     listedAt: null,
-    media: mapMedia(it),
+    media: mapMedia(it, detail),
     sourceUrl: sourceUrl(it),
     raw: { item: it } as unknown as RawPayload,
   };

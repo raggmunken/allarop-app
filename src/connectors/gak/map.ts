@@ -27,8 +27,12 @@ export function mapAuction(
   };
 }
 
-function mapMedia(it: GakItem, cfg: GakHouseConfig): NormalizedMedia[] {
-  return it.image ? [{ kind: "image", url: `${cfg.baseUrl}${it.image}`, sort: 1 }] : [];
+function mapMedia(it: GakItem, cfg: GakHouseConfig, detail: GakDetail | null): NormalizedMedia[] {
+  // Berikat galleri (detaljsidans lozad-bilder) om det finns; annars kortets enda bild.
+  const urls = detail?.images?.length
+    ? detail.images.map((u) => `${cfg.baseUrl}${u}`)
+    : it.image ? [`${cfg.baseUrl}${it.image}`] : [];
+  return urls.map((url, i) => ({ kind: "image", url, sort: i + 1 }));
 }
 
 export function mapItem(
@@ -66,7 +70,7 @@ export function mapItem(
     currency: "SEK",
     seller: cfg.seller,
     listedAt: null,
-    media: mapMedia(it, cfg),
+    media: mapMedia(it, cfg, detail),
     sourceUrl: sourceUrl(it, cfg),
     raw: { item: it, detail } as unknown as RawPayload,
   };

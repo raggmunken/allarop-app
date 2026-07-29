@@ -52,6 +52,13 @@ export class BlintoConnector implements FlatSource {
 
   constructor(private readonly opts: BlintoConnectorOpts = {}) {}
 
+  /** Objekt berikat i DB men ej om-hämtat detta körvarv (t.ex. efter omstart):
+   * lämna media tom så upsertMedia inte raderar det sparade galleriet (tom = rör ej). */
+  private preserveGallery(mapped: NormalizedItem, objId: string, det: BlintoDetail | null): NormalizedItem {
+    if (!det?.images?.length && (this.enrichedInDb?.has(objId) ?? false)) mapped.media = [];
+    return mapped;
+  }
+
   async fetchPage(opts: { ended?: boolean } = {}): Promise<FlatSourcePage> {
     if (opts.ended) {
       return { items: [], currentPage: 1, totalPages: 1, totalEntries: 0 };
@@ -139,7 +146,7 @@ export class BlintoConnector implements FlatSource {
         const det = this.detail.get(it.objId) ?? null;
         return {
           auction: mapAuction(it, det),
-          item: mapItem(it, det),
+          item: this.preserveGallery(mapItem(it, det), it.objId, det),
           bids: [], // budgivare visas inte med identitet → inga bud-rader
         };
       }),
@@ -188,7 +195,8 @@ export class BlintoConnector implements FlatSource {
     for (const it of items) {
       const lv = live.get(it.aucId);
       if (lv) this.applyLive(it, lv);
-      out.set(it.objId, { item: mapItem(it, this.detail.get(it.objId) ?? null), bids: [] });
+      const det = this.detail.get(it.objId) ?? null;
+      out.set(it.objId, { item: this.preserveGallery(mapItem(it, det), it.objId, det), bids: [] });
     }
     return out;
   }
