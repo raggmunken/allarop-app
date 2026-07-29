@@ -50,6 +50,18 @@ import { AuktionaConnector, HOUSE as HOUSE_AUKTIONA } from "./connectors/auktion
 import { feeModelFor } from "./fees/rules.ts";
 import { closePool, initSchema } from "./db/pool.ts";
 import { enrichedItemIds, galleryEnrichedItemIds, loadRawItems, priceHistory, rawFieldSeed, searchItems, upsertHouse } from "./db/repo.ts";
+
+/**
+ * "Helt berikad" = beskrivning OCH galleri (>1 bild) finns i DB. Används som
+ * loadEnriched-skip för hus där berikningen hämtar bådadera ur objektsidan:
+ * objekt som tappat galleriet (t.ex. av en tidigare media-wipe) räknas INTE som
+ * berikade → hämtas om igen och galleriet återställs av sig självt, medan objekt
+ * med intakt galleri slipper om-hämtning.
+ */
+const fullyEnriched = (house: string) => async (): Promise<Set<string>> => {
+  const [desc, gal] = await Promise.all([enrichedItemIds(house), galleryEnrichedItemIds(house)]);
+  return new Set([...desc].filter((id) => gal.has(id)));
+};
 import { llmClassifyPass, visionClassifyBulk } from "./ai/classify-llm.ts";
 import { ingestAll, ingestFlat } from "./scheduler/pipeline.ts";
 import { backfillEndedBatch } from "./scheduler/backfill.ts";
@@ -265,21 +277,22 @@ async function main(): Promise<void> {
         new BnaConnector(),
         // Seed:a redan-berikade objekt ur DB → hoppa över om-hämtning av objektsidor
         // efter omstart (list-/live-data uppdateras ändå varje svep). Berikning =
-        // beskrivning + galleri ur objektsidan → "berikad" = description IS NOT NULL.
+        // beskrivning + galleri ur objektsidan → "berikad" = beskrivning OCH galleri
+        // (fullyEnriched; objekt som tappat galleriet hämtas om → självläkande).
         new KlaravikConnector({
-          loadEnriched: () => enrichedItemIds(HOUSE_KLARAVIK),
+          loadEnriched: fullyEnriched(HOUSE_KLARAVIK),
           loadCache: () => loadRawItems(HOUSE_KLARAVIK),
         }),
-        new BlintoConnector({ loadEnriched: () => enrichedItemIds(HOUSE_BLINTO) }),
+        new BlintoConnector({ loadEnriched: fullyEnriched(HOUSE_BLINTO) }),
         new PSAuctionConnector({
-          loadEnriched: () => enrichedItemIds(HOUSE_PSAUCTION),
+          loadEnriched: fullyEnriched(HOUSE_PSAUCTION),
           loadCache: () => loadRawItems(HOUSE_PSAUCTION, "item"),
         }),
-        new RetradeConnector({ loadEnriched: () => enrichedItemIds(HOUSE_RETRADE) }),
-        new NetauktionConnector({ loadEnriched: () => enrichedItemIds(HOUSE_NETAUKTION) }),
+        new RetradeConnector({ loadEnriched: fullyEnriched(HOUSE_RETRADE) }),
+        new NetauktionConnector({ loadEnriched: fullyEnriched(HOUSE_NETAUKTION) }),
         // Kronofogden: en list-render täcker alla objekt → ingen loadCache behövs.
-        new KronofogdenConnector({ loadEnriched: () => enrichedItemIds(HOUSE_KRONOFOGDEN) }),
-        new JunoraConnector({ loadEnriched: () => enrichedItemIds(HOUSE_JUNORA) }),
+        new KronofogdenConnector({ loadEnriched: fullyEnriched(HOUSE_KRONOFOGDEN) }),
+        new JunoraConnector({ loadEnriched: fullyEnriched(HOUSE_JUNORA) }),
         // Bidflow-hus (Sajab, Effecta, Effecta Maskin, Haraldssons ...): event-hus, en
         // connector per hus. Aktiva auktioners objekt varje svep + historik backfillas.
         // Beskrivning + skick berikas gradvis via lotInfo (loadEnriched-skip).
@@ -295,7 +308,7 @@ async function main(): Promise<void> {
         // GAK-plattformen (Göteborgs Auktionskammare, Auktionskammaren): SSR-PHP, config-driven.
         // Avgiftsattribut (priceInfo) ur detaljsidan, persisterade via raw → seed över omstart.
         ...GAK_HOUSES.map((h) => new GakConnector(h, {
-          loadEnriched: () => enrichedItemIds(h.house),
+          loadEnriched: fullyEnriched(h.house),
           loadFees: () => rawFieldSeed(h.house, ["detail", "fee"]),
         })),
         // Metropol: ASP-sajt, katalog per kategori (product-cards.html), kort bär allt.
@@ -304,17 +317,17 @@ async function main(): Promise<void> {
         new MetropolConnector({ loadEnriched: () => galleryEnrichedItemIds(HOUSE_METROPOL) }),
         // Pantbanken: pantauktioner (SSR), offset/length-paginering. Kort bär bud + budledare.
         // Beskrivning (Objektinformation-tabellen) berikas gradvis per objektsida.
-        new PantbankenConnector({ loadEnriched: () => enrichedItemIds(HOUSE_PANTBANKEN) }),
+        new PantbankenConnector({ loadEnriched: fullyEnriched(HOUSE_PANTBANKEN) }),
         // Budi: konkurs/B2B (SSR-lista + batch bidinfo-API + meta-beskrivning). Avgifts-
         // parametrar ur objektsidan, persisterade via raw → seed över omstart.
         new BudiConnector({
-          loadEnriched: () => enrichedItemIds(HOUSE_BUDI),
+          loadEnriched: fullyEnriched(HOUSE_BUDI),
           loadFeeParams: () => rawFieldSeed(HOUSE_BUDI, ["item", "feeParams"]),
         }),
         // Vaxxa: konkurs/självservice (Typesense-index + objektsids-berikning: galleri+text+
         // momsstatus). Serviceavgift via getProductFeeAction per (objekt, bud).
         new VaxxaConnector({
-          loadEnriched: () => enrichedItemIds(HOUSE_VAXXA),
+          loadEnriched: fullyEnriched(HOUSE_VAXXA),
           loadTaxable: async () => {
             const raw = await rawFieldSeed<boolean>(HOUSE_VAXXA, ["item", "isTaxable"]);
             return new Map([...raw].filter(([, v]) => typeof v === "boolean"));
