@@ -1365,7 +1365,6 @@ async function openDetail(house,id){
         <a class="cta" href="${it.source_url}" target="_blank" rel="noopener">Buda hos ${houseName(house)} →</a>
         ${(()=>{if(!IS_ADMIN)return "";const k=house+"/"+id,on=WATCHED.has(k),e=String(id).replace(/'/g,"\\'");
           return `<button class="rp-addbtn wbtn${on?" added":""}" data-w="${esc(k)}" onclick="toggleWatch('${house}','${e}')">${on?"★ Bevakas - du får notis vid förändringar":"☆ Bevaka objektet"}</button>`;})()}
-        <button class="rp-addbtn" onclick="addCurrentToRoute()">🚚 Lägg till i rutt</button>
         <button class="rp-addbtn" onclick="shareCurrentObject()">🔗 Dela objekt</button>
       </div>`;
     // Visuellt lika objekt (bild-embeddings) - laddas i bakgrunden, injiceras om träffar finns.
@@ -1958,7 +1957,6 @@ function pickSuggest(s,el){
 function hideSuggest(){const dd=document.getElementById("rSuggest");if(dd)dd.style.display="none";}
 
 function addToRoute(label,opts){opts=opts||{};ROUTE.stops.push({label:label||"Stopp",address:opts.address||"",service:10,open:"",close:"",house:opts.house||null,id:opts.id!=null?String(opts.id):null,lat:opts.lat??null,lon:opts.lon??null});persistRoute();toast(`Lagt till i rutt (${ROUTE.stops.length})`);if(_routeOn)renderRouteStops();}
-function addCurrentToRoute(){if(!CUR_DETAIL)return;addToRoute(CUR_DETAIL.title,{address:CUR_DETAIL.location,house:CUR_DETAIL.house,id:CUR_DETAIL.id});const b=window.event&&window.event.target;if(b){b.textContent="✓ Tillagd i rutt";b.classList.add("added");}}
 
 function renderRouteStops(){
   const wrap=document.getElementById("rStops");if(!wrap)return;
