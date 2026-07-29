@@ -748,7 +748,7 @@
       <div class="rp-head">
         <div>
           <h2 class="rp-h">Ruttplanerare</h2>
-          <p class="rp-sub">Fyll i din startpunkt och de upphämtningar du vill hinna. Vi räknar ut bästa ordning och en tidslinje. Lägg till stopp direkt från ett objekt via "Lägg till i rutt".</p>
+          <p class="rp-sub">Fyll i din startpunkt och de upphämtningar du vill hinna. Vi räknar ut bästa ordning och en tidslinje.</p>
         </div>
         <div class="rp-src" id="rSrcBadge" title="Källa för restider"></div>
       </div>
@@ -1972,7 +1972,7 @@ function renderRouteStops(){
         <span><label>Öppnar</label><input class="rp-sopen" placeholder="--:--" value="${esc(s.open||"")}"></span>
         <span><label>Stänger</label><input class="rp-sclose" placeholder="--:--" value="${esc(s.close||"")}"></span>
       </div>
-    </div>`).join("")||`<div style="color:var(--ink-faint);font-size:13px;padding:6px 2px">Inga stopp än. Lägg till nedan, eller klicka "Lägg till i rutt" på ett objekt i söket.</div>`;
+    </div>`).join("")||`<div style="color:var(--ink-faint);font-size:13px;padding:6px 2px">Inga stopp än. Lägg till nedan.</div>`;
 }
 function syncRouteFromDOM(){
   ROUTE.depot=document.getElementById("rDepot").value.trim();
