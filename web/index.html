@@ -616,9 +616,11 @@
     background:linear-gradient(to right,transparent,var(--bg))}
   /* ---------- mobil-finslip ---------- */
   @media(max-width:760px){
-    /* Nav-sök på mobil: gör plats genom att dölja live-räknaren när navet är i sökläge. */
+    /* Nav-sök på mobil: gör plats genom att dölja live-räknaren + admin-knapparna
+       när navet är i sökläge (annars trycks sökfältet utanför skärmen). */
     nav.scrolled .live{display:none}
-    nav.scrolled .nav-meta{flex:1;gap:8px}
+    body.is-admin nav.scrolled .admin-only{display:none!important} /* högre specifikitet än is-admin-visningen */
+    nav.scrolled .nav-meta{flex:1;gap:8px;min-width:0}
     nav.scrolled .navsearch{max-width:none}
     /* Filter-panel på mobil: hopfälld bakom en "Filter"-knapp, inte 6 rader piller. */
     .fpanel>summary{display:flex;align-items:center;justify-content:space-between;list-style:none;cursor:pointer;
