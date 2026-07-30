@@ -66,6 +66,16 @@
   .nav-meta{display:flex;align-items:center;gap:18px;font-size:13.5px;color:var(--ink-soft)}
   .navlink{font-weight:600;color:var(--ink-2);padding:7px 13px;border-radius:var(--pill);border:1px solid var(--line-2);background:var(--surface);transition:all .15s;white-space:nowrap}
   .navlink:hover{border-color:var(--accent);color:var(--accent)}
+  /* Sticky nav-sök: dold högst upp, ersätter "Guider"-länken när man scrollat. */
+  .navsearch{display:none;align-items:center;gap:0;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--pill);padding:5px 5px 5px 6px;box-shadow:var(--sh-sm);flex:1;min-width:0;max-width:460px;transition:box-shadow .2s,border-color .2s}
+  .navsearch:focus-within{border-color:var(--ink);box-shadow:var(--sh)}
+  .navsearch .ico{display:grid;place-items:center;width:30px;color:var(--ink-faint);flex:0 0 auto}
+  .navsearch input{flex:1;min-width:0;border:0;background:transparent;outline:none;font:inherit;font-size:14.5px;color:var(--ink);padding:7px 4px}
+  .navsearch input::placeholder{color:var(--ink-faint)}
+  .navsearch button{border:0;background:var(--ink);color:#fff;border-radius:var(--pill);padding:0 15px;height:34px;font:inherit;font-weight:600;font-size:13.5px;cursor:pointer;transition:background .15s;flex:0 0 auto}
+  .navsearch button:hover{background:var(--accent)}
+  nav.scrolled .navsearch{display:flex}
+  nav.scrolled #guideLink{display:none}
   .live{display:inline-flex;align-items:center;gap:7px;font-weight:500;color:var(--ink-2)}
   .live .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(12,138,90,.5);animation:pulse 2s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(12,138,90,.45)}70%{box-shadow:0 0 0 7px rgba(12,138,90,0)}100%{box-shadow:0 0 0 0 rgba(12,138,90,0)}}
@@ -98,6 +108,10 @@
 
   /* ---------- controls ---------- */
   .controls{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding:26px 0 6px}
+  /* Filter-panel: på desktop alltid utvikt (summary dold), på mobil hopfälld bakom "Filter". */
+  .fpanel>summary{display:none}
+  .fpanel:not([open])>.controls{display:flex}
+  #controls{scroll-margin-top:76px} /* sticky-nav ska inte täcka filterraden vid scrollIntoView */
   /* Källfilter: fler-vals-dropdown (skalar till 20+ hus, läsbara antal). */
   .srcdd{position:relative}
   .srcbtn{display:inline-flex;align-items:center;gap:9px;font:inherit;font-size:14px;font-weight:500;color:var(--ink);
@@ -601,12 +615,30 @@
   .dsec::after{content:"";position:absolute;right:0;top:36px;bottom:16px;width:46px;pointer-events:none;
     background:linear-gradient(to right,transparent,var(--bg))}
   /* ---------- mobil-finslip ---------- */
+  @media(max-width:760px){
+    /* Nav-sök på mobil: gör plats genom att dölja live-räknaren när navet är i sökläge. */
+    nav.scrolled .live{display:none}
+    nav.scrolled .nav-meta{flex:1;gap:8px}
+    nav.scrolled .navsearch{max-width:none}
+    /* Filter-panel på mobil: hopfälld bakom en "Filter"-knapp, inte 6 rader piller. */
+    .fpanel>summary{display:flex;align-items:center;justify-content:space-between;list-style:none;cursor:pointer;
+      font:inherit;font-size:14.5px;font-weight:600;color:var(--ink);border:1px solid var(--line-2);
+      background:var(--surface);border-radius:var(--pill);padding:11px 16px;margin-top:16px;box-shadow:var(--sh-sm)}
+    .fpanel>summary::-webkit-details-marker{display:none}
+    .fpanel>summary::after{content:"▾";font-size:12px;color:var(--ink-soft);transition:transform .18s}
+    .fpanel[open]>summary::after{transform:rotate(180deg)}
+    .fpanel:not([open])>.controls{display:none}
+    .fpanel[open]>.controls{display:flex;padding-top:14px}
+    .sortsel{margin-left:0}
+  }
   @media(max-width:560px){
     .nav-meta{gap:11px}
     .live{font-size:12px}
     /* Sortera-etiketten tar plats i den trånga filterraden - dölj ordet, dropdownen räcker. */
     .sortsel>span{display:none}
     .controls{gap:8px}
+    /* Näta sök-knappen i navet på riktigt smal skärm. */
+    nav.scrolled .navsearch button{padding:0 12px;font-size:13px}
   }
 </style>
 </head>
@@ -615,7 +647,12 @@
     <div class="wrap nav-in">
       <a class="logo" href="/"><span class="mark"></span> Allarop</a>
       <div class="nav-meta">
-        <a class="navlink" href="/guide">Guider</a>
+        <form class="navsearch" id="navSearchForm" autocomplete="off">
+          <span class="ico"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
+          <input id="navQ" name="navQ" aria-label="Sök bland alla auktioner" placeholder="Sök auktioner…" />
+          <button type="submit">Sök</button>
+        </form>
+        <a class="navlink" href="/guide" id="guideLink">Guider</a>
         <button class="navbtn admin-only" id="cmpBtn" type="button" title="Bevakade objekt - jämför">★<span class="nbadge" id="cmpCount" hidden></span></button>
         <div class="belldd admin-only">
           <button class="navbtn" id="bellBtn" type="button" title="Notiser">🔔<span class="nbadge" id="bellCount" hidden></span></button>
@@ -645,6 +682,8 @@
   </header>
 
   <div class="wrap">
+    <details class="fpanel" id="fpanel">
+      <summary>Filter</summary>
     <div class="controls" id="controls">
       <div class="srcdd" id="srcDD">
         <button class="srcbtn" id="srcBtn" type="button" aria-haspopup="true" aria-expanded="false">
@@ -738,6 +777,7 @@
       </select>
       <span class="count" id="count"></span>
     </div>
+    </details>
   </div>
 
   <main class="wrap">
@@ -1413,6 +1453,29 @@ document.addEventListener("keydown",e=>{
   else if(e.key==="ArrowRight"){if(lbOpen)lbStep(1);else if(moOpen)vStep(1);}
 });
 document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDefault();curQuery=document.getElementById("q").value.trim();load();});
+// Sticky nav-sök: visas när man scrollat förbi hero-söket (ersätter "Guider"-länken).
+// En sökning härifrån kör samma pipeline som hero-söket men scrollar till resultaten
+// istället för att hoppa tillbaka upp (annars försvinner nav-söken direkt igen).
+{
+  const navEl=document.querySelector("nav");
+  const navSearchForm=document.getElementById("navSearchForm");
+  const navQ=document.getElementById("navQ");
+  let navTick=false;
+  function navScroll(){
+    if(navTick)return;navTick=true;
+    requestAnimationFrame(()=>{navTick=false;navEl.classList.toggle("scrolled",window.scrollY>140);});
+  }
+  window.addEventListener("scroll",navScroll,{passive:true});
+  navScroll();
+  navSearchForm.addEventListener("submit",e=>{
+    e.preventDefault();
+    const q=navQ.value.trim();
+    document.getElementById("q").value=q;
+    curQuery=q;
+    load();
+    document.getElementById("controls").scrollIntoView({behavior:"smooth",block:"start"});
+  });
+}
 // Datadrivet källfilter (fler-val): byggs ur /houses så nya hus dyker upp av sig
 // själva. En dropdown med kryssrutor + antal skalar till 20+ hus utan att bli rörigt.
 let SRC_HOUSES=[];
