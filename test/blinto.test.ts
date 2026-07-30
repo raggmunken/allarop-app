@@ -30,6 +30,18 @@ describe("Blinto listparser (startsidans SSR)", () => {
     expect(v.endText).toBe("29 jun 09:59");
     expect(v.image).toContain("cdn.blinto.se/object/267984/");
   });
+
+  it("plockar även static.blinto.se-bilder för husstomme-liknande objekt", () => {
+    const staticCard = `<a href="/auction/Furulids-2-plan-1966m2-267086-196807/">
+      <div class="product-img"><img class="img-fluid" src="https://static.blinto.se/object/image/mid/mid_267086_4064330.jpg?time=1781084889?006" alt="Husstomme" title="Husstomme"></div>
+      <div class="product-content"><span class="brand-type">Husstomme</span>
+      <h3 class="h3-second-line">Furulids 2 plan 196.6m2</h3>
+      <span class="card-location">Mjöbäck</span></div>
+    </a>`;
+    const parsed = parseList(staticCard);
+    expect(parsed.length).toBe(1);
+    expect(parsed[0].image).toBe("https://static.blinto.se/object/image/mid/mid_267086_4064330.jpg");
+  });
 });
 
 describe("Blinto objektsida (slagavgift + moms + galleri + brödtext)", () => {

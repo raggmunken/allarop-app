@@ -86,7 +86,11 @@ export class KronofogdenConnector implements FlatSource {
       .filter((it) => !this.detail.has(it.objId) && !this.enrichedInDb?.has(it.objId))
       .slice(0, ENRICH_PER_SWEEP);
     await mapWithConcurrency(fresh, ENRICH_CONCURRENCY, async (it) => {
-      this.detail.set(it.objId, await this.client.fetchDetail(it.inA, it.inO, it.objId));
+      const det = await this.client.fetchDetail(it.inA, it.inO, it.objId);
+      // Cacha bara lyckade berikningar; misslyckade försök försöker igen nästa svep.
+      if (det && (det.images.length > 0 || det.description)) {
+        this.detail.set(it.objId, det);
+      }
     });
 
     return {

@@ -81,15 +81,16 @@ function textInClass(block: string, cls: string): string | null {
 const CARD_ANCHOR = /<a[^>]*href="(\/auction\/[A-Za-z0-9-]+-(\d+)-(\d+)\/)"[\s\S]*?<\/a>/g;
 
 /**
- * Bild-URL i jämn storlek (/1200x900f). Korttbilder kommer som
- * `.../X.jpg/600x450f` (resize-suffix), objektsidans galleri-URL:er som
- * `.../X.jpg` (utan suffix) → strippa ev. suffix och lägg på /1200x900f så
- * BÅDA formerna normaliseras till samma URL (annars dubbletter i galleriet).
+ * Normalisera bild-URL från Blinto. CDN-bilder (cdn.blinto.se) kommer med resize-
+ * suffix (/600x450f) på kort och utan suffix i galleriet → normalisera till /1200x900f.
+ * Vissa objekt (t.ex. husstommar) ligger på static.blinto.se/object/image/mid/... med
+ * querystring-cachebust → strippa queryn men behåll URL:en i övrigt.
  */
 export function fullImage(url: string | null): string | null {
   if (!url) return null;
-  const base = url.replace(/\/\d+x\d+\w*$/, "");
-  return `${base}/1200x900f`;
+  const base = url.replace(/\?.*$/, "").replace(/\/\d+x\d+\w*$/, "");
+  if (base.includes("cdn.blinto.se")) return `${base}/1200x900f`;
+  return base;
 }
 
 /** Ren parser: startsidans HTML → auktionskort (dedup på objekt-id). */
@@ -106,7 +107,9 @@ export function parseList(html: string): BlintoItem[] {
     if (seen.has(objId)) continue;
     seen.add(objId);
 
-    const imgM = /https:\/\/cdn\.blinto\.se\/object\/\d+\/[^"\s]+/.exec(block);
+    // Blinto använder två CDN: den vanliga cdn.blinto.se och static.blinto.se för
+    // vissa objekt (t.ex. husstommar). Matcha båda så korten inte förlorar sin bild.
+    const imgM = /https:\/\/(?:cdn|static)\.blinto\.se\/object\/[^"\s]+?\.(?:jpg|jpeg|webp|png)/i.exec(block);
     const cardText = decode(stripTags(block)).replace(/\s+/g, " ");
     // Aktuellt bud + antal bud finns som "X SEK" / "N bud" i korttexten (i nästlade
     // element → ta dem ur den tag-strippade texten i stället för per klass).
@@ -194,15 +197,20 @@ export function parseDetail(html: string, objId: string | number): BlintoDetail 
 
   // Galleriet kan vara stort (ett objekt hade 96 bilder) → ta hela, inte bara 20.
   // Varje bild förekommer flera gånger (slider/thumb/lightbox) → dedup via fullImage.
+  // Vissa objekt ligger på static.blinto.se (filnamnet innehåller objekt-id), så vi
+  // samlar båda CDN:erna och filtrerar bort eventuella andra objekts bilder.
   const images: string[] = [];
   const seen = new Set<string>();
-  const re = new RegExp(`https://cdn\\.blinto\\.se/object/${objId}/[^"\\s]+?\\.(?:jpg|jpeg|webp)`, "g");
+  const re = /https:\/\/(?:cdn|static)\.blinto\.se\/object\/[^"\s]+?\.(?:jpg|jpeg|webp|png)/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) != null) {
-    const url = fullImage(m[0])!;
-    if (!seen.has(url)) {
-      seen.add(url);
-      images.push(url);
+    const url = m[0];
+    if (url.includes("cdn.blinto.se") && !url.includes(`/object/${objId}/`)) continue;
+    if (url.includes("static.blinto.se") && !url.includes(`${objId}`)) continue;
+    const norm = fullImage(url)!;
+    if (!seen.has(norm)) {
+      seen.add(norm);
+      images.push(norm);
     }
     if (images.length >= 150) break;
   }
@@ -266,12 +274,29 @@ export function parseAuctionData(json: string): Map<string, BlintoBidData> {
 
 export class BlintoClient {
   /**
+   * Blinto rate-limitar/utmanar direkta besök på /auction/* om sessionen inte
+   * är värm. Hämta startsidan en gång först så cookien/sessionen slipper igenom.
+   */
+  private sessionReady = false;
+  private async seedSession(): Promise<void> {
+    if (this.sessionReady) return;
+    this.sessionReady = true;
+    try {
+      await this.get("/", 1);
+    } catch {
+      /* bästa försök; misslyckas det löser browsern utmaningen per objekt i stället */
+    }
+  }
+
+  /**
    * Hämta en sida via stealth-browsern (CloakBrowser). Blinto ligger bakom
    * Cloudflare bot-management som fingeravtryckar HTTP-klienter (Node-fetch OCH
    * curl kan få 403) → en riktig stealth-Chromium krävs. Omförsök med backoff.
    */
   private async get(path: string, tries = 3): Promise<string> {
     const url = path.startsWith("http") ? path : `${ORIGIN}${path}`;
+    // Värm sessionen innan vi besöker auktionssidorna (där Cloudflare är strängare).
+    if (url !== `${ORIGIN}/`) await this.seedSession();
     let lastErr: unknown;
     for (let i = 0; i < tries; i++) {
       try {

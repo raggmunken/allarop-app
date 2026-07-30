@@ -76,7 +76,11 @@ export class JunoraConnector implements FlatSource {
       .filter((it) => !this.detail.has(it.remoteId) && !this.enrichedInDb?.has(it.remoteId))
       .slice(0, ENRICH_PER_SWEEP);
     await mapWithConcurrency(fresh, ENRICH_CONCURRENCY, async (it) => {
-      this.detail.set(it.remoteId, await this.client.fetchDetail(it.slug));
+      const det = await this.client.fetchDetail(it.slug);
+      // Cacha bara lyckade berikningar; misslyckade försök försöker igen nästa svep.
+      if (det && (det.images.length > 0 || det.description)) {
+        this.detail.set(it.remoteId, det);
+      }
     });
 
     return {

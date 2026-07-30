@@ -138,7 +138,7 @@ export class BlintoConnector implements FlatSource {
       .filter((it) => !this.detail.has(it.objId) && !this.enrichedInDb?.has(it.objId))
       .slice(0, ENRICH_PER_SWEEP);
     await mapWithConcurrency(fresh, ENRICH_CONCURRENCY, async (it) => {
-      this.detail.set(it.objId, await this.client.fetchDetail(it.href, it.objId));
+      this.cacheDetail(it.objId, await this.client.fetchDetail(it.href, it.objId));
     });
 
     return {
@@ -208,9 +208,17 @@ export class BlintoConnector implements FlatSource {
     it.nextMinBid = lv.nextMinBid;
   }
 
+  private cacheDetail(objId: string, det: BlintoDetail | null): void {
+    // Cacha bara lyckade berikningar. Misslyckade försök (null eller tomt galleri)
+    // får inte låsa objektet med 0/1 bild för alltid – nästa svep försöker igen.
+    if (det && (det.images.length > 0 || det.description)) {
+      this.detail.set(objId, det);
+    }
+  }
+
   private async ensureDetail(it: BlintoItem): Promise<BlintoDetail | null> {
     if (!this.detail.has(it.objId)) {
-      this.detail.set(it.objId, await this.client.fetchDetail(it.href, it.objId));
+      this.cacheDetail(it.objId, await this.client.fetchDetail(it.href, it.objId));
     }
     return this.detail.get(it.objId) ?? null;
   }
