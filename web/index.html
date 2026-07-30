@@ -88,6 +88,14 @@
   }
   .hero h1 .g{color:var(--accent)}
   .hero .sub{margin-top:20px;font-size:clamp(16px,1.8vw,20px);color:var(--ink-soft);max-width:46ch}
+  /* Eyebrow-chip ovan rubriken (live-räkning) + snabb-chips under söket (kategorigenvägar). */
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--accent-ink);
+    background:var(--accent-soft);border-radius:var(--pill);padding:6px 13px;margin-bottom:16px}
+  .eyebrow i{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .quickchips{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+  .quickchips a,.quickchips button{font:inherit;font-size:13.5px;font-weight:500;color:var(--ink-2);background:var(--surface);
+    border:1px solid var(--line-2);padding:7px 13px;border-radius:var(--pill);cursor:pointer;transition:all .15s}
+  .quickchips a:hover,.quickchips button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
   form.search{
     margin-top:32px; display:flex; gap:8px; background:var(--surface);
     border:1px solid var(--line-2); border-radius:var(--pill); padding:7px 7px 7px 8px;
@@ -107,11 +115,15 @@
   form.search button:active{transform:scale(.97)}
 
   /* ---------- controls ---------- */
-  .controls{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding:26px 0 6px}
-  /* Filter-panel: på desktop alltid utvikt (summary dold), på mobil hopfälld bakom "Filter". */
-  .fpanel>summary{display:none}
-  .fpanel:not([open])>.controls{display:flex}
-  #controls{scroll-margin-top:76px} /* sticky-nav ska inte täcka filterraden vid scrollIntoView */
+  .controls{display:flex;gap:9px;flex-wrap:wrap;align-items:center;padding:12px 0}
+  /* Filter-panel: på desktop alltid utvikt (summary dold), på mobil hopfälld bakom "Filter".
+     Sticky under navet (som förslag "Studio"): filtren följer med vid scroll. Fullbleed
+     bakgrund via negativ marginal (samma som .wrap:s padding). */
+  .fpanel{position:sticky;top:64px;z-index:45;background:rgba(244,243,239,.92);
+    backdrop-filter:saturate(1.4) blur(12px);border-bottom:1px solid var(--line)}
+  .fpanel-in{max-width:1320px;margin:0 auto;padding:0 clamp(16px,4vw,40px)}
+  .fsummary{display:none} /* desktop: alltid utvikt, ingen knapp */
+  #controls{scroll-margin-top:130px} /* sticky nav + sticky filterbar ska inte täcka målet vid scrollIntoView */
   /* Källfilter: fler-vals-dropdown (skalar till 20+ hus, läsbara antal). */
   .srcdd{position:relative}
   .srcbtn{display:inline-flex;align-items:center;gap:9px;font:inherit;font-size:14px;font-weight:500;color:var(--ink);
@@ -182,7 +194,7 @@
 
   /* ---------- grid ---------- */
   main{padding:18px 0 100px}
-  .grid{display:grid;gap:clamp(14px,1.5vw,20px);grid-template-columns:repeat(auto-fill,minmax(262px,1fr))}
+  .grid{display:grid;gap:clamp(12px,1.4vw,18px);grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
   .card{
     background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;
     cursor:pointer;display:flex;flex-direction:column;box-shadow:var(--sh-sm);
@@ -191,7 +203,7 @@
   }
   .card.in{opacity:1;transform:none}
   .card:hover{transform:translateY(-5px);box-shadow:var(--sh);border-color:var(--line-2)}
-  .thumb{position:relative;aspect-ratio:1/1;background:var(--bg-2);overflow:hidden;margin:7px;border-radius:var(--r-sm)}
+  .thumb{position:relative;aspect-ratio:4/3;background:var(--bg-2);overflow:hidden}
   .thumb img{width:100%;height:100%;object-fit:cover;transition:transform .5s cubic-bezier(.2,.8,.2,1)}
   .card:hover .thumb img{transform:scale(1.05)}
   .thumb .noimg{display:flex;align-items:center;justify-content:center;height:100%;color:var(--ink-faint);font-size:14px}
@@ -214,16 +226,16 @@
     background:rgba(17,17,16,.84);backdrop-filter:blur(6px);color:#fff;border-radius:var(--pill)}
   .countdown.soon{background:var(--accent)} .countdown.ended{background:rgba(118,116,108,.92)}
   .lead{position:absolute;top:10px;right:10px;font-size:11px;font-weight:600;padding:5px 10px;background:var(--green);color:#fff;border-radius:var(--pill)}
-  .cbody{padding:6px 16px 17px;display:flex;flex-direction:column;gap:9px;flex:1}
-  .ctitle{font-weight:600;font-size:16px;line-height:1.28;letter-spacing:-.02em;
+  .cbody{padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px;flex:1}
+  .ctitle{font-weight:600;font-size:15px;line-height:1.3;letter-spacing:-.02em;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.55em}
-  .cloc{font-size:13px;color:var(--ink-soft);display:flex;gap:7px;align-items:center}
+  .cloc{font-size:12.5px;color:var(--ink-soft);display:flex;gap:6px;align-items:center}
   .cloc svg{flex:0 0 auto;opacity:.6}
-  .pricerow{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;padding-top:13px;border-top:1px solid var(--line)}
+  .pricerow{margin-top:auto;display:flex;justify-content:space-between;align-items:flex-end;gap:10px;padding-top:10px;border-top:1px solid var(--line)}
   .bid .lbl,.total .lbl{font-size:11px;color:var(--ink-faint);margin-bottom:2px;font-weight:500}
-  .bid .val{font-size:15px;font-weight:600;color:var(--ink-2)}
+  .bid .val{font-size:14px;font-weight:600;color:var(--ink-2)}
   .total{text-align:right}
-  .total .val{font-size:21px;font-weight:700;color:var(--accent);line-height:1}
+  .total .val{font-size:19px;font-weight:800;color:var(--accent);line-height:1;letter-spacing:-.03em}
   .sek{font-size:11px;font-weight:500;color:var(--ink-soft);margin-top:2px;letter-spacing:.01em}
   .feetag{font-size:11px;color:var(--ink-faint);font-style:italic;font-weight:500}
   .resv{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;margin-bottom:8px;letter-spacing:.01em}
@@ -623,14 +635,13 @@
     nav.scrolled .nav-meta{flex:1;gap:8px;min-width:0}
     nav.scrolled .navsearch{max-width:none}
     /* Filter-panel på mobil: hopfälld bakom en "Filter"-knapp, inte 6 rader piller. */
-    .fpanel>summary{display:flex;align-items:center;justify-content:space-between;list-style:none;cursor:pointer;
+    .fsummary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;
       font:inherit;font-size:14.5px;font-weight:600;color:var(--ink);border:1px solid var(--line-2);
-      background:var(--surface);border-radius:var(--pill);padding:11px 16px;margin-top:16px;box-shadow:var(--sh-sm)}
-    .fpanel>summary::-webkit-details-marker{display:none}
-    .fpanel>summary::after{content:"▾";font-size:12px;color:var(--ink-soft);transition:transform .18s}
-    .fpanel[open]>summary::after{transform:rotate(180deg)}
-    .fpanel:not([open])>.controls{display:none}
-    .fpanel[open]>.controls{display:flex;padding-top:14px}
+      background:var(--surface);border-radius:var(--pill);padding:11px 16px;margin:10px 16px;box-shadow:var(--sh-sm)}
+    .fsummary::after{content:"▾";font-size:12px;color:var(--ink-soft);transition:transform .18s}
+    .fpanel.open .fsummary::after{transform:rotate(180deg)}
+    .fpanel:not(.open) .controls{display:none}
+    .fpanel.open .controls{display:flex;padding-top:4px}
     .sortsel{margin-left:0}
   }
   @media(max-width:560px){
@@ -673,6 +684,7 @@
 
   <header class="hero">
     <div class="wrap">
+      <span class="eyebrow"><i></i><span id="eyebrowTxt">Sveriges auktioner samlade på ett ställe</span></span>
       <h1>Alla Sveriges nätauktioner. <span class="g">Ett sökfält.</span></h1>
       <p class="sub">Sök, följ och jämför objekt från flera auktionssajter - med det verkliga totalpriset inklusive avgifter, inte bara budet.</p>
       <form class="search" id="searchForm" autocomplete="off">
@@ -680,12 +692,21 @@
         <input id="q" name="q" aria-label="Sök bland alla auktioner" placeholder="Sök t.ex. 3d-skrivare, grävmaskin, Kosta Boda…" />
         <button type="submit">Sök</button>
       </form>
+      <div class="quickchips">
+        <button type="button" onclick="pickCategory('fordon')">Fordon</button>
+        <button type="button" onclick="pickCategory('entreprenad')">Entreprenad</button>
+        <button type="button" onclick="pickCategory('konst')">Konst &amp; antikt</button>
+        <button type="button" onclick="pickCategory('smycken')">Smycken</button>
+        <button type="button" onclick="pickCategory('mobler')">Möbler</button>
+        <button type="button" onclick="quickKonkurs()">Konkurs</button>
+        <a href="/auktioner/kronofogden">Kronofogden</a>
+      </div>
     </div>
   </header>
 
-  <div class="wrap">
-    <details class="fpanel" id="fpanel">
-      <summary>Filter</summary>
+  <div class="fpanel" id="fpanel">
+    <button class="fsummary" id="fpSummary" type="button" aria-expanded="false" aria-controls="controls">Filter</button>
+    <div class="fpanel-in">
     <div class="controls" id="controls">
       <div class="srcdd" id="srcDD">
         <button class="srcbtn" id="srcBtn" type="button" aria-haspopup="true" aria-expanded="false">
@@ -779,7 +800,7 @@
       </select>
       <span class="count" id="count"></span>
     </div>
-    </details>
+    </div>
   </div>
 
   <main class="wrap">
@@ -1478,6 +1499,14 @@ document.getElementById("searchForm").addEventListener("submit",e=>{e.preventDef
     document.getElementById("controls").scrollIntoView({behavior:"smooth",block:"start"});
   });
 }
+// Filter-panel (mobil): knappen fäller ut/in filterraden. Desktop är alltid utvikt (CSS).
+{
+  const fp=document.getElementById("fpanel"),fs=document.getElementById("fpSummary");
+  fs.addEventListener("click",()=>{
+    const open=fp.classList.toggle("open");
+    fs.setAttribute("aria-expanded",String(open));
+  });
+}
 // Datadrivet källfilter (fler-val): byggs ur /houses så nya hus dyker upp av sig
 // själva. En dropdown med kryssrutor + antal skalar till 20+ hus utan att bli rörigt.
 let SRC_HOUSES=[];
@@ -1554,6 +1583,8 @@ function catButtonLabel(){
   catLabel.textContent = sk ? (m?.subs.find(x=>x.key===sk)?.label || curCategory) : (m?.label || mk);
 }
 function pickCategory(key){curCategory=key;catButtonLabel();renderCats();closeCat();load();}
+// Snabb-chip i hero:n: slå på konkursfiltret (men aldrig av igen - chippen är en genväg, inte toggle).
+function quickKonkurs(){if(!curKonkurs)document.getElementById("konkursToggle").click();}
 catList.addEventListener("click",e=>{
   const exp=e.target.closest("[data-exp]"); if(exp){e.stopPropagation();catOpenMain=catOpenMain===exp.dataset.exp?"":exp.dataset.exp;renderCats();return;}
   const main=e.target.closest("[data-main]"); if(main){pickCategory(main.dataset.main);return;}
@@ -2151,7 +2182,7 @@ function enterRoutePage(){
 
 document.getElementById("reserveFilter").addEventListener("change",e=>{curReserve=e.target.value;load();});
 
-async function stats(){try{const r=await fetch(`${API}/houses`);const d=await r.json();const hs=d.houses||[];renderSources(hs);const total=hs.reduce((s,h)=>s+(h.item_count||0),0);document.getElementById("livecount").textContent=`${fmt(total)} aktiva auktioner`;document.getElementById("stat").textContent=hs.map(h=>houseName(h.house)).join(" · ");}catch{}}
+async function stats(){try{const r=await fetch(`${API}/houses`);const d=await r.json();const hs=d.houses||[];renderSources(hs);const total=hs.reduce((s,h)=>s+(h.item_count||0),0);document.getElementById("livecount").textContent=`${fmt(total)} aktiva auktioner`;const eb=document.getElementById("eyebrowTxt");if(eb)eb.textContent=`${fmt(total)} aktiva objekt från ${hs.length} auktionshus`;document.getElementById("stat").textContent=hs.map(h=>houseName(h.house)).join(" · ");}catch{}}
 async function loadRates(){try{RATES=await (await fetch(`${API}/rates`)).json();}catch{}}
 // ---- Admin-inloggning (UI-gating) ----
 function openLogin(){const w=document.getElementById("loginWrap");if(!w)return;w.hidden=false;const e=document.getElementById("loginErr");if(e)e.hidden=true;setTimeout(()=>{const p=document.getElementById("loginPw");if(p){p.value="";p.focus();}},30);}
