@@ -365,12 +365,19 @@
   .dmeta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px}
   .dmeta span{font-size:13px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);padding:6px 12px;border-radius:var(--pill)}
   .breakdown{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px 22px;margin-bottom:24px;box-shadow:var(--sh-sm)}
-  .breakdown .cap{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--ink-soft);margin-bottom:12px}
+  .breakdown .cap{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:12px}
   .breakdown .row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;font-size:15px;color:var(--ink-2)}
   .breakdown .row .v{font-weight:600;color:var(--ink)}
-  .breakdown .row.tot{border-top:1px solid var(--line);margin-top:8px;padding-top:15px}
+  /* Totalraden lyfts med accent-bakgrund (Studio-stil) - det viktigaste beloppet på sidan. */
+  .breakdown .row.tot{border-top:0;margin:12px -6px -6px;padding:13px 14px;background:var(--accent-soft);border-radius:12px}
   .breakdown .row.tot span:first-child{font-weight:600;color:var(--ink)}
-  .breakdown .row.tot .v{font-size:27px;font-weight:800;color:var(--accent);letter-spacing:-.03em}
+  .breakdown .row.tot .v{font-size:27px;font-weight:800;color:var(--accent-ink);letter-spacing:-.03em}
+  /* Sticky handlingslist nederst i info-kolumnen - "Buda hos X" alltid synlig utan scroll. */
+  .dactions{position:sticky;bottom:0;z-index:5;margin:20px 0 -6px;padding:16px 0 10px;
+    background:linear-gradient(to bottom,rgba(244,243,239,0) 0%,var(--bg) 42%)}
+  .dactions .cta{margin-top:0}
+  .dactions .drow2{display:flex;gap:8px;margin-top:8px}
+  .dactions .drow2 .rp-addbtn{flex:1;margin-top:0}
   .ddesc{font-size:15px;line-height:1.65;color:var(--ink-2);margin-bottom:8px}
   .ddesc p{margin-bottom:10px}
   .seclbl{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft);margin:26px 0 12px}
@@ -1426,10 +1433,14 @@ async function openDetail(house,id){
         <div id="vissim"></div>
         <div class="seclbl">Budhistorik</div>
         <div class="bidlist">${bidsHTML}</div>
-        <a class="cta" href="${it.source_url}" target="_blank" rel="noopener">Buda hos ${houseName(house)} →</a>
-        ${(()=>{if(!IS_ADMIN)return "";const k=house+"/"+id,on=WATCHED.has(k),e=String(id).replace(/'/g,"\\'");
-          return `<button class="rp-addbtn wbtn${on?" added":""}" data-w="${esc(k)}" onclick="toggleWatch('${house}','${e}')">${on?"★ Bevakas - du får notis vid förändringar":"☆ Bevaka objektet"}</button>`;})()}
-        <button class="rp-addbtn" onclick="shareCurrentObject()">🔗 Dela objekt</button>
+        <div class="dactions">
+          <a class="cta" href="${it.source_url}" target="_blank" rel="noopener">Buda hos ${houseName(house)} →</a>
+          <div class="drow2">
+            ${(()=>{if(!IS_ADMIN)return "";const k=house+"/"+id,on=WATCHED.has(k),e=String(id).replace(/'/g,"\\'");
+              return `<button class="rp-addbtn wbtn${on?" added":""}" data-w="${esc(k)}" onclick="toggleWatch('${house}','${e}')">${on?"★ Bevakas":"☆ Bevaka"}</button>`;})()}
+            <button class="rp-addbtn" onclick="shareCurrentObject()">Dela objekt</button>
+          </div>
+        </div>
       </div>`;
     // Visuellt lika objekt (bild-embeddings) - laddas i bakgrunden, injiceras om träffar finns.
     loadVisualSimilar(house, id);
