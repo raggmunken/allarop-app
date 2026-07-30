@@ -48,6 +48,7 @@ import {
   checkPassword, setAdminCookie, clearAdminCookie,
 } from "./auth.ts";
 import { rateLimit } from "./ratelimit.ts";
+import { INDEXNOW_KEY } from "../scheduler/indexnow.ts";
 
 const WEB_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../web");
 
@@ -56,6 +57,15 @@ const SECURITY_HEADERS: Record<string, string> = {
   "x-content-type-options": "nosniff",
   "x-frame-options": "SAMEORIGIN",
   "referrer-policy": "strict-origin-when-cross-origin",
+  // CSP i REPORT-ONLY-läge (audit E6, steg 1): loggar brott utan att blockera
+  // något — kan aldrig bryta SPA:n. SPA:n fetchar samma origin och laddar inga
+  // externa scripts; typsnitt via Google Fonts, bilder/media från källhusen (https:).
+  // Verifiera i rapport-loggen innan byte till tvingande "content-security-policy".
+  "content-security-policy-report-only":
+    "default-src 'self'; img-src 'self' https: data:; media-src 'self' https:; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; " +
+    "connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
 };
 
 async function serveHtmlFile(res: ServerResponse, file: string, extraHeaders?: Record<string, string>): Promise<void> {
@@ -266,8 +276,21 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   // Global grovsäkring per IP (generös): stoppar hamring men stör aldrig normal användning
   // (statussidan pollar 6/min, en sökning är några anrop). Statiska asset-svar undantas.
-  const isAsset = url.pathname === "/sw.js" || url.pathname === "/favicon.png";
+  const isAsset = url.pathname === "/sw.js" || url.pathname === "/favicon.png"
+    || url.pathname === `/${INDEXNOW_KEY}.txt`;
   if (!isAsset && !rateLimit(req, res, "global", 600, 60_000)) return;
+
+  // IndexNow-nyckelfil (audit E11): IndexNow/Bing hämtar denna för att verifiera att
+  // vi äger nyckeln i ping-payloaden. Nyckeln är PUBLIK by design (protokollet kräver
+  // att filen är hämtbar) — sätt INDEXNOW_KEY i miljön för att styra den.
+  if (url.pathname === `/${INDEXNOW_KEY}.txt`) {
+    res.writeHead(200, {
+      "content-type": "text/plain; charset=utf-8",
+      "cache-control": "public, max-age=3600",
+    });
+    res.end(INDEXNOW_KEY);
+    return;
+  }
 
   if (url.pathname === "/" || url.pathname === "/index.html") {
     // Sök-/filter-URL:er (?q=, ?house=, ?category= osv) är tunt/dubblettinnehåll av samma
@@ -342,6 +365,13 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     return;
   }
   if (url.pathname === "/health") return send(res, 200, { ok: true });
+
+  // Objekt-djuplänk /objekt/<hus>/<id> (SPA-rutt): klienten pushState:ar hit när en
+  // detaljvy öppnas, och IndexNow-pingarna (audit E11) pekar hit. VIKTIGT: denna ligger
+  // EFTER SSR-dispatchen (handleSeoPage, injiceras av setup-skriptet före /health) så
+  // kända objekt serveras som SSR med Product-schema — denna fallback (200 + app-skal)
+  // gäller bara objekt som SSR inte känner igen (okända/borttagna), i stället för 404.
+  if (parts[0] === "objekt" && parts.length === 3) return serveApp(res);
 
   // Växelkurser (SEK per enhet) för att visa ungefärligt SEK-pris på utländska objekt.
   if (url.pathname === "/rates") return send(res, 200, await sekRates());

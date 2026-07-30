@@ -21,6 +21,7 @@ import {
   upsertItem,
   upsertPart,
 } from "../db/repo.ts";
+import { flush as flushIndexNow } from "./indexnow.ts";
 
 export interface IngestStats {
   parts: number;
@@ -80,6 +81,7 @@ export async function ingestAll(
     }
   }
 
+  flushIndexNow(); // skicka buffrade nya/avslutade objekt-URL:er (fire-and-forget)
   return stats;
 }
 
@@ -123,6 +125,7 @@ export async function ingestFlat(
     page++;
   }
 
+  flushIndexNow(); // skicka buffrade nya/avslutade objekt-URL:er (fire-and-forget)
   return { items, bids, pages: page, total };
 }
 
@@ -177,6 +180,7 @@ export async function sweepFlatActive(
   } while (fetched < pagesPerCycle && cur !== startKey); // stanna efter ett helt varv
 
   await setJobState(job, cur, st.total, false);
+  flushIndexNow(); // skicka buffrade nya objekt-URL:er (fire-and-forget)
   return { items, shard: lastLabel };
 }
 
@@ -213,10 +217,12 @@ export async function backfillFlatEnded(
     page++;
     if (reachedEnd) {
       await setJobState(job, page, total, true);
+      flushIndexNow(); // skicka buffrade objekt-URL:er (fire-and-forget)
       return { items, offset: page, total, doneAll: true };
     }
   }
   await setJobState(job, page, total, false);
+  flushIndexNow(); // skicka buffrade objekt-URL:er (fire-and-forget)
   return { items, offset: page, total, doneAll: false };
 }
 

@@ -41,6 +41,7 @@ import {
   ingestFlat,
   sweepFlatActive,
 } from "./pipeline.ts";
+import { flush as flushIndexNow } from "./indexnow.ts";
 
 const FULL_REFRESH_MS = Number(process.env.FULL_REFRESH_MS ?? 1_800_000); // 30 min
 /** Loopens grundtakt — finaste pollintervallet (sista minuten pollas var 10:e s). */
@@ -418,6 +419,9 @@ export async function runScheduler(
             `finaliserade ${ended + fEnded}`,
         );
       }
+      // IndexNow: skicka ev. buffrade URL:er (nya + nyavslutade objekt från
+      // hot-poll/finalisering). Fire-and-forget — kan aldrig störa loopen.
+      flushIndexNow();
 
       // LLM-klassning av nyckelords-missar (conf='none') - en batch per intervall, i
       // BAKGRUNDEN (LLM-svar kan ta ~min; grundticken får inte blockeras). Tyst no-op

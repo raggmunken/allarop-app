@@ -17,6 +17,7 @@ import { isComparable, ItemAttrs } from "./similar.ts";
 import { cosine, decodeVec } from "../ai/embed.ts";
 import type { QueryExpansion } from "../ai/search-expand.ts";
 import { pool } from "./pool.ts";
+import { addEnded, addInserted } from "../scheduler/indexnow.ts";
 
 export async function upsertHouse(
   key: string,
@@ -89,7 +90,7 @@ export async function upsertItem(
   const cat = hit
     ? { category: hit.category, confidence: "learned" }
     : classify(it.title, it.description, hc.key, hc.raw);
-  await pool.query(
+  const res = await pool.query<{ inserted: boolean }>(
     `INSERT INTO items (house, external_id, part_external_id, auction_external_id, title,
                         description, location, status, ends_at, min_bid, current_bid,
                         bid_count, fee_value, vat_value, total_price, total_basis, source_url,
@@ -143,7 +144,10 @@ export async function upsertItem(
                          THEN items.category ELSE $36 END,
            category_conf=CASE WHEN cat_conf_rank(items.category_conf) > cat_conf_rank($37)
                               THEN items.category_conf ELSE $37 END,
-           last_seen=now()`,
+           last_seen=now()
+     -- xmax=0-tricket: vid ON CONFLICT-update sätts radens xmax (låsmarkör),
+     -- vid ren INSERT är den 0 → inserted=true bara när objektet är HELT nytt.
+     RETURNING (xmax = 0) AS inserted`,
     [
       it.house, it.externalId, it.partExternalId, it.auctionExternalId, it.title,
       it.description, it.location, it.status, it.endsAt, it.minBid, it.currentBid,
@@ -157,6 +161,9 @@ export async function upsertItem(
       cat.category, cat.confidence,
     ],
   );
+  // Riktig INSERT (inte en ON CONFLICT-update) → objektet är NYTT → buffra för
+  // IndexNow-ping (samlade pingar skickas av flush() i slutet av ingest-svepet).
+  if (res.rows[0]?.inserted) addInserted(it.house, it.externalId);
   await upsertMedia(it.house, "item", it.externalId, it.media);
 }
 
@@ -1166,12 +1173,18 @@ export async function finalizeEndedItem(
   // 15 min). Skyddar mot källor som råkar returnera pågående/kommande objekt i "ended"-
   // flödet (t.ex. GAK) och därmed förgiftar prishistoriken med start-bud som "slutpris".
   const FUTURE_GUARD = "(i.ends_at IS NULL OR i.ends_at <= now() + interval '15 minutes')";
-  await pool.query(
+  // Status-flip till 'ended' bara om raden inte redan var avslutad (IS DISTINCT FROM)
+  // → RETURNING träffar exakt de NYAVSLUTADE objekten (idempotent omkörning = ingen
+  // träff = ingen dubbel IndexNow-ping).
+  const flipped = await pool.query(
     `UPDATE items SET status='ended', last_seen=now()
      WHERE house=$1 AND external_id=$2
-       AND (ends_at IS NULL OR ends_at <= now() + interval '15 minutes')`,
+       AND status IS DISTINCT FROM 'ended'
+       AND (ends_at IS NULL OR ends_at <= now() + interval '15 minutes')
+     RETURNING external_id`,
     [house, externalId],
   );
+  if ((flipped.rowCount ?? 0) > 0) addEnded(house, externalId);
   await pool.query(
     `INSERT INTO price_history (house, item_external_id, item_title, category,
                                final_bid, final_total, winner_name, sold, ended_at, raw)
@@ -1202,7 +1215,7 @@ export async function finalizePastDue(
   house: string,
   graceMs = 600_000,
 ): Promise<number> {
-  const res = await pool.query(
+  const res = await pool.query<{ house: string; item_external_id: string }>(
     `WITH due AS (
        UPDATE items SET status='ended', last_seen=now()
        WHERE house=$1 AND status='active'
@@ -1226,9 +1239,13 @@ export async function finalizePastDue(
        SET final_bid=EXCLUDED.final_bid, final_total=EXCLUDED.final_total,
            winner_name=EXCLUDED.winner_name, sold=EXCLUDED.sold,
            ended_at=EXCLUDED.ended_at, category=EXCLUDED.category,
-           raw=COALESCE(EXCLUDED.raw, price_history.raw)`,
+           raw=COALESCE(EXCLUDED.raw, price_history.raw)
+     RETURNING house, item_external_id`,
     [house, String(graceMs)],
   );
+  // Raderna kommer ur `due`-CTE:n (WHERE status='active') → status bytte till
+  // 'ended' i just detta anrop → NYAVSLUTADE → buffra för IndexNow-ping.
+  for (const r of res.rows) addEnded(r.house, r.item_external_id);
   return res.rowCount ?? 0;
 }
 

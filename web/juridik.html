@@ -3,9 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Om Allarop</title>
+<title>Om Allarop – samlingsplattformen för Sveriges nätauktioner</title>
 <link rel="canonical" href="https://allarop.se/om">
-<meta name="description" content="Om Allarop, användarvillkor, integritetspolicy och kontaktuppgifter/takedown.">
+<meta name="description" content="Så fungerar Allarop: vi samlar objekt från 29 svenska auktionssajter, visar verkliga totalpriset inkl. avgifter – helt gratis. Villkor, integritet & kontakt.">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"AboutPage","@id":"https://allarop.se/om","name":"Om Allarop","description":"Om tjänsten, användarvillkor, integritetspolicy och kontakt för Allarop – samlingsplattformen för Sveriges nätauktioner.","inLanguage":"sv-SE","about":{"@id":"https://allarop.se/#org"},"publisher":{"@id":"https://allarop.se/#org"}}
+</script>
 <style>
   :root{
     --bg:#faf8f4;--fg:#1c1a17;--muted:#6f685c;--faint:#8a8377;--line:#e5e0d8;
@@ -68,7 +71,7 @@
 
   <main>
     <a class="back" href="/">&larr; Till söket</a>
-    <h1>Om tjänsten &amp; villkor</h1>
+    <h1>Om Allarop – alla nätauktioner på ett ställe</h1>
     <p class="lead">Allarop samlar utbudet från Sveriges nätauktioner på ett ställe. Vi listar och länkar vidare - all budgivning och betalning sker hos respektive auktionssajt.</p>
 
     <section id="om">
@@ -147,7 +150,7 @@
   (function(){
     var path=location.pathname.replace(/\/+$/,"")||"/om";
     var sec=path.slice(1); // "om" | "villkor" | "integritet" | "kontakt"
-    var titles={om:"Om Allarop",villkor:"Anvandarvillkor - Allarop",integritet:"Integritetspolicy - Allarop",kontakt:"Kontakt & takedown - Allarop"};
+    var titles={om:"Om Allarop – samlingsplattformen för Sveriges nätauktioner",villkor:"Anvandarvillkor - Allarop",integritet:"Integritetspolicy - Allarop",kontakt:"Kontakt & takedown - Allarop"};
     if(titles[sec])document.title=titles[sec];
     document.querySelectorAll(".subnav a").forEach(function(a){a.classList.toggle("on",a.dataset.sec===sec);});
     var el=document.getElementById(sec);

@@ -23,6 +23,7 @@ import {
   upsertPriceHistory,
 } from "../db/repo.ts";
 import { auctionFromPart } from "./pipeline.ts";
+import { flush as flushIndexNow } from "./indexnow.ts";
 
 export interface BackfillResult {
   processedParts: number;
@@ -75,5 +76,6 @@ export async function backfillEndedBatch(
   const doneAll = parts.length < batchParts;
   await setJobState(job, newOffset, total, doneAll);
 
+  flushIndexNow(); // skicka buffrade nya objekt-URL:er (fire-and-forget)
   return { processedParts: parts.length, items: itemCount, offset: newOffset, total, doneAll };
 }
