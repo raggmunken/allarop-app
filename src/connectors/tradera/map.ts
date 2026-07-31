@@ -45,6 +45,14 @@ export function mapActiveItem(it: RawTraderaItem): NormalizedItem | null {
   const buyNow = Number(it.buyNowPrice ?? 0);
   const value = isFixed ? buyNow || bid : bid;
   if (!Number.isFinite(value) || value <= 0) return null;
+  // Sluttid: fastpris-annonser ("Köp nu") bär en SYNTETISK sluttid hos Tradera (~15 år
+  // fram, verifierat 2026-07-31) → UI:t visade "5458 dagar kvar". Köp-nu har ingen
+  // riktig sluttid → null. Auktioner behåller sin, men kläm absurda värden (>2 år)
+  // till null - ingen riktig auktion pågår så länge (samma skydd om Tradera ändrar sig).
+  const endsMs = it.endDate ? Date.parse(it.endDate) : NaN;
+  const endsAt = !isFixed && Number.isFinite(endsMs) && endsMs - Date.now() < 2 * 365 * 86_400_000
+    ? it.endDate!
+    : null;
   return {
     house: HOUSE,
     externalId,
@@ -52,7 +60,7 @@ export function mapActiveItem(it: RawTraderaItem): NormalizedItem | null {
     auctionExternalId: "",
     title: (it.shortDescription ?? "").trim() || `Tradera ${externalId}`,
     status: "active",
-    endsAt: it.endDate ?? null, // null för vissa fastpris-annonser → finalizePastDue rör dem ej
+    endsAt,
     currentBid: Math.round(value),
     bidCount: typeof it.totalBids === "number" ? it.totalBids : null,
     reserveStatus: it.reservedPriceReached ? "met" : null,

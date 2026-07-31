@@ -49,6 +49,21 @@ describe("mapActiveItem (aktiva Tradera-objekt → items)", () => {
     expect(it.status).toBe("active");
   });
 
+  it("köp nu (PureBin): ingen sluttid - Traderas syntetiska sluttid (~15 år) ignoreras", () => {
+    const it = mapActiveItem({ ...FIXED, endDate: "2041-07-01T12:00:00.000Z" })!;
+    expect(it.endsAt).toBeNull();
+    expect(it.status).toBe("active");
+  });
+
+  it("auktion: normal sluttid behålls", () => {
+    expect(mapActiveItem(AUCTION)!.endsAt).toBe("2026-08-05T19:30:00.000Z");
+  });
+
+  it("auktion: absurd sluttid (>2 år fram) kläms till null", () => {
+    const it = mapActiveItem({ ...AUCTION, endDate: "2041-07-01T12:00:00.000Z" })!;
+    expect(it.endsAt).toBeNull();
+  });
+
   it("GDPR: aldrig säljaridentitet - seller är alltid 'Tradera'", () => {
     expect(mapActiveItem(AUCTION)!.seller).toBe("Tradera");
     expect(mapActiveItem(FIXED)!.seller).toBe("Tradera");
