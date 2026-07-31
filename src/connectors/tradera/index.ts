@@ -363,14 +363,16 @@ export async function crawlTraderaSold(opts: CrawlOptions = {}): Promise<CrawlSt
 
 const ACTIVE_SWEEP_JOB = "tradera-active-sweep";
 
-/** Skriv en sidas AKTIVA objekt till items (upsert = fräsch bid/tid varje svep). */
+/** Skriv en sidas AKTIVA objekt till items (upsert = fräsch bid/tid varje svep).
+ * categoryName (löv vid full-crawl, rot vid snabbsvep) följer med in i raw →
+ * houseCategoryKey klassificerar via källans egen kategori (starkaste signalen). */
 async function harvestActiveItems(
   items: ReturnType<typeof parseSoldSearch>["items"],
-  _categoryName = "",
+  categoryName = "",
 ): Promise<number> {
   let n = 0;
   for (const raw of items) {
-    const it = mapActiveItem(raw);
+    const it = mapActiveItem(raw, categoryName || undefined);
     if (!it) continue;
     await upsertItem(it);
     n++;

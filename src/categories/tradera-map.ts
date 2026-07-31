@@ -9,9 +9,25 @@
  * MIN_SHARE-tröskeln i voteTokens är extra brus-skydd om enstaka titlar felmärks.
  */
 
+/** Rot-id → rot-namn (importen är cykelfri: categories.ts är ren data utan imports). */
+import { TRADERA_ROOTS } from "../connectors/tradera/categories.ts";
+
 const RULES: [RegExp, string][] = [
   // Serietidningar (före böcker - "serier" är specifikt)
   [/seri(er|e|magasin)|\bmarvel\b|\bdc\b|disney|fantomen|\bmanga|\bbamse\b|superhj[äa]lte|graphic novel|illustrerade klassiker|\btintin/, "samla/serietidningar"],
+  // ROT-namn (33 toppkategorier) - bara otvetydiga rötter; tvetydiga (Hobby, Övrigt,
+  // Barnartiklar, Biljetter & Resor) lämnas null och faller på text/LLM i stället.
+  [/^\s*fordon\s*$/, "fordon/personbilar"],
+  [/^\s*musik\s*$/, "media/vinyl"],
+  [/^\s*konst\s*$/, "konst/konst-tavlor"],
+  [/^\s*antikt\b/, "konst/antikt"],
+  [/hemelektronik/, "elektronik/ljud-bild-tv"],
+  [/fordonsdelar/, "fordon/bildelar"],
+  [/^\s*sk[öo]nhet\s*$/, "skonhet/hudvard"],
+  [/konsthantverk|handgjort/, "mobler/prydnad"],
+  [/accessoarer/, "klader/accessoarer"],
+  [/hem & hush[åa]ll|hush[åa]lls|k[öo]ksmaskin|vitvara/, "hem/husgerad-kok"],
+  [/verktyg/, "verktyg/handverktyg"],
   // Tidningar & magasin
   [/tidning|tidskrift|magasin/, "bocker/tidningar"],
   // Böcker (genrer + boktyper)
@@ -90,4 +106,12 @@ export function traderaCategoryToKey(name: string | null | undefined): string | 
   const n = ` ${String(name ?? "").toLowerCase()} `;
   for (const [re, key] of RULES) if (re.test(n)) return key;
   return null;
+}
+
+const ROOT_NAME_BY_ID = new Map(TRADERA_ROOTS.map((r) => [r.id, r.name]));
+
+/** Tradera rot-kategori-ID → vår taxonominyckel (via rot-namnet + samma regelkarta). */
+export function traderaCategoryById(id: number | null | undefined): string | null {
+  if (id == null) return null;
+  return traderaCategoryToKey(ROOT_NAME_BY_ID.get(id));
 }

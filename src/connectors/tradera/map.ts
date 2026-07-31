@@ -37,7 +37,7 @@ function mediaFrom(it: RawTraderaItem): NormalizedMedia[] {
  * Avgift: privat Tradera har ingen köparprovision/moms → source-läge utan avgift,
  * total = pris (samma som sålt-mappningen - "hellre inget än fel").
  */
-export function mapActiveItem(it: RawTraderaItem): NormalizedItem | null {
+export function mapActiveItem(it: RawTraderaItem, categoryName?: string): NormalizedItem | null {
   const externalId = String(it.itemId ?? "");
   if (!externalId || externalId === "undefined") return null;
   const isFixed = it.itemType === "PureBin" || it.itemType === "FixedPrice";
@@ -73,6 +73,9 @@ export function mapActiveItem(it: RawTraderaItem): NormalizedItem | null {
     raw: {
       itemType: it.itemType ?? null,
       categoryId: it.categoryId ?? null,
+      // Källans kategorinamn (löv vid full-crawl, rot vid snabbsvep) - starkaste
+      // kategorisignalen vi har; används av houseCategoryKey vid klassificering.
+      categoryName: categoryName ?? null,
       sellerIsCompany: it.sellerIsCompany ?? null, // anonym flagga, ingen identitet
     },
   };

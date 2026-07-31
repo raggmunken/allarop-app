@@ -7,6 +7,7 @@
 
 import { classifyByText, PARTIER } from "./classify.ts";
 import { AUCTIONET_CATEGORY_MAP } from "./auctionet-map.ts";
+import { traderaCategoryById, traderaCategoryToKey } from "./tradera-map.ts";
 
 const BUDI: Record<string, string> = {
   "construction-home": "bygg/byggmaterial",
@@ -82,6 +83,16 @@ export function houseCategoryKey(house: string, raw: Record<string, unknown> | n
   if (house === "klaravik") {
     const label = String((o as { categoryNameLevel1?: string }).categoryNameLevel1 ?? "");
     return { key: mapLabel(label), raw: label || null };
+  }
+  if (house === "tradera") {
+    // Traderas EGEN kategori är den starkaste signalen: löv-namn (categoryName, från
+    // full-crawlen) först, annars rot-id → rot-namn (snabbsvepet) → samma regelkarta.
+    const o = nested(raw);
+    const name = String((o as { categoryName?: string }).categoryName ?? "");
+    if (name) return { key: traderaCategoryToKey(name), raw: name };
+    const id = Number((o as { categoryId?: unknown }).categoryId);
+    const key = traderaCategoryById(Number.isFinite(id) ? id : null);
+    return { key, raw: key ? String(id) : null };
   }
   // Hus-typ-default: Pantbanken (pantbank) är ~95 % smycken/silver/klockor → oklassat = smycken.
   if (house === "pantbanken") return { key: "smycken/smycken-sub", raw: "pantbank" };
