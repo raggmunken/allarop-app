@@ -14,9 +14,10 @@
 
 import { browserFetch } from "../../browser/cloak.ts";
 import { parseSoldSearch } from "./flight.ts";
-import { mapSoldItem, HOUSE } from "./map.ts";
+import { mapActiveItem, mapSoldItem, HOUSE } from "./map.ts";
 import { TRADERA_ROOTS } from "./categories.ts";
 import {
+  upsertItem,
   upsertPriceHistory,
   upsertMedia,
   getJobState,
@@ -65,8 +66,14 @@ const COUNTIES = [
 const ITEM_TYPES = ["Auction", "FixedPrice", "ContactOnly"];
 const SELLER_TYPES = ["Private", "Company"];
 
-function soldUrl(categoryId: number, page: number, sp: SoldSlice = {}, status = "Sold"): string {
-  const p = new URLSearchParams({ itemStatus: status, sortBy: "EndDateDescending" });
+function soldUrl(
+  categoryId: number,
+  page: number,
+  sp: SoldSlice = {},
+  status = "Sold",
+  sortBy = "EndDateDescending",
+): string {
+  const p = new URLSearchParams({ itemStatus: status, sortBy });
   if (page > 1) p.set("paging", String(page));
   if (sp.price) { p.set("fromPrice", String(sp.price.lo)); p.set("toPrice", String(sp.price.hi)); }
   if (sp.county) p.set("county", sp.county);
@@ -77,8 +84,14 @@ function soldUrl(categoryId: number, page: number, sp: SoldSlice = {}, status = 
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-async function fetchSold(categoryId: number, page: number, sp: SoldSlice = {}, status = "Sold") {
-  const html = await browserFetch(soldUrl(categoryId, page, sp, status), {
+async function fetchSold(
+  categoryId: number,
+  page: number,
+  sp: SoldSlice = {},
+  status = "Sold",
+  sortBy = "EndDateDescending",
+) {
+  const html = await browserFetch(soldUrl(categoryId, page, sp, status, sortBy), {
     waitUntil: "networkidle",
     dwellMs: 1200,
     timeoutMs: 60_000,
@@ -325,6 +338,74 @@ export async function crawlTraderaSold(opts: CrawlOptions = {}): Promise<CrawlSt
       await setJobState(JOB, next, roots.length, next === 0);
     }
   }
+  return stats;
+}
+
+/* ---- AKTIVA objekt till items (syns i sök/listor) ---- */
+
+const ACTIVE_SWEEP_JOB = "tradera-active-sweep";
+
+/** Skriv en sidas AKTIVA objekt till items (upsert = fräsch bid/tid varje svep). */
+async function harvestActiveItems(
+  items: ReturnType<typeof parseSoldSearch>["items"],
+): Promise<number> {
+  let n = 0;
+  for (const raw of items) {
+    const it = mapActiveItem(raw);
+    if (!it) continue;
+    await upsertItem(it);
+    n++;
+  }
+  return n;
+}
+
+/**
+ * AKTIV-SVEP (för schemaläggaren): hämtar AKTIVA Tradera-objekt sorterade slutar-
+ * snart-först (EndDateAscending) för några rot-kategorier per cykel via roterande
+ * cursor. Objekten upsertas till items och syns i sök/listor; upsert gör varje svep
+ * billigt (bud/sluttid fräschas), och finalizePastDue avslutar objekten när sluttiden
+ * passerat. GDPR: ingen säljaridentitet lagras (mapActiveItem, samma regel som sålt).
+ *
+ * Takmedveten design: samma CloakBrowser-last som tradera-fresh → få rötter/sidor per
+ * cykel, sorteringen gör att vi ALLTID fångar det mest tidkritiska (slutar snart) först
+ * i stället för att bränna hämtningar på objekt med veckor kvar.
+ */
+export async function crawlTraderaActiveSweep(opts: {
+  rootsPerCycle?: number;
+  pagesPerRoot?: number;
+  log?: (m: string) => void;
+} = {}): Promise<CrawlStats> {
+  const log = opts.log ?? (() => {});
+  const rootsPerCycle = opts.rootsPerCycle ?? 8;
+  const pagesPerRoot = Math.max(1, opts.pagesPerRoot ?? 3);
+  const stats: CrawlStats = { fetches: 0, stored: 0, categories: 0 };
+  const n = TRADERA_ROOTS.length;
+
+  const st = await getJobState(ACTIVE_SWEEP_JOB);
+  let idx = st.done ? 0 : Math.min(st.cursor_offset, n - 1);
+  for (let k = 0; k < rootsPerCycle && k < n; k++) {
+    const r = TRADERA_ROOTS[idx];
+    if (r) {
+      for (let p = 1; p <= pagesPerRoot; p++) {
+        let res;
+        try {
+          res = await fetchSold(r.id, p, {}, "Active", "EndDateAscending");
+        } catch (e) {
+          log(`tradera-aktiv: [${r.name}] sida ${p} fel: ${(e as Error).message}`);
+          break;
+        }
+        stats.fetches++;
+        if (!res.items.length) break;
+        stats.stored += await harvestActiveItems(res.items);
+        if (res.items.length < PAGE_SIZE) break; // sista sidan
+        if (p < pagesPerRoot) await sleep(400);
+      }
+      stats.categories++;
+    }
+    idx = (idx + 1) % n;
+  }
+  await setJobState(ACTIVE_SWEEP_JOB, idx, n, idx === 0);
+  log(`tradera-aktiv: ${stats.stored} aktiva upsertade från ${stats.categories} kategorier (${stats.fetches} hämtningar)`);
   return stats;
 }
 

@@ -28,6 +28,49 @@ function mediaFrom(it: RawTraderaItem): NormalizedMedia[] {
 }
 
 /**
+ * Ett AKTIVT Tradera-objekt (auktion eller köp-nu) → NormalizedItem för items-tabellen
+ * (syns i sök/listor). Samma GDPR-regel som sålt: ALDRIG säljaridentitet - seller
+ * sätts till "Tradera" (husnivå), aldrig alias/memberId.
+ *
+ * Auktion: `price` = aktuellt bud. Köp nu ("PureBin"/"FixedPrice"): `buyNowPrice`
+ * = priset att köpa för. "ContactOnly"/utan pris → null (kan inte prissättas ärligt).
+ * Avgift: privat Tradera har ingen köparprovision/moms → source-läge utan avgift,
+ * total = pris (samma som sålt-mappningen - "hellre inget än fel").
+ */
+export function mapActiveItem(it: RawTraderaItem): NormalizedItem | null {
+  const externalId = String(it.itemId ?? "");
+  if (!externalId || externalId === "undefined") return null;
+  const isFixed = it.itemType === "PureBin" || it.itemType === "FixedPrice";
+  const bid = Number(it.price ?? 0); // aktuellt bud (auktion) eller senaste pris
+  const buyNow = Number(it.buyNowPrice ?? 0);
+  const value = isFixed ? buyNow || bid : bid;
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return {
+    house: HOUSE,
+    externalId,
+    partExternalId: "",
+    auctionExternalId: "",
+    title: (it.shortDescription ?? "").trim() || `Tradera ${externalId}`,
+    status: "active",
+    endsAt: it.endDate ?? null, // null för vissa fastpris-annonser → finalizePastDue rör dem ej
+    currentBid: Math.round(value),
+    bidCount: typeof it.totalBids === "number" ? it.totalBids : null,
+    reserveStatus: it.reservedPriceReached ? "met" : null,
+    currency: "SEK",
+    feeValue: null, // privat Tradera: ingen köparavgift
+    vatRate: null, // ingen moms läggs på (privatförsäljning)
+    seller: "Tradera",
+    media: mediaFrom(it),
+    sourceUrl: it.itemUrl ?? null,
+    raw: {
+      itemType: it.itemType ?? null,
+      categoryId: it.categoryId ?? null,
+      sellerIsCompany: it.sellerIsCompany ?? null, // anonym flagga, ingen identitet
+    },
+  };
+}
+
+/**
  * Ett sålt Tradera-objekt → NormalizedItem. `price` = slutpris (vinnande bud för
  * auktion, köp-nu-pris för fastpris). reserveStatus sätts så upsertPriceHistory
  * markerar sold=true (objektet ÄR sålt). part/auction-id lämnas tomma - de används

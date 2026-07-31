@@ -68,7 +68,7 @@ import { backfillEndedBatch } from "./scheduler/backfill.ts";
 import { runScheduler } from "./scheduler/poll.ts";
 import { startApi } from "./api/server.ts";
 import { reconSite, summarizeProfile } from "./recon/capture.ts";
-import { crawlTraderaSold, crawlTraderaActiveTrain } from "./connectors/tradera/index.ts";
+import { crawlTraderaSold, crawlTraderaActiveTrain, crawlTraderaActiveSweep } from "./connectors/tradera/index.ts";
 import { closeBrowser } from "./browser/cloak.ts";
 
 const args = process.argv.slice(2);
@@ -189,6 +189,10 @@ async function ensureAuktionaHouse(): Promise<void> {
   await upsertHouse(HOUSE_AUKTIONA, "Auktiona", "auktiona.se", feeModelFor(HOUSE_AUKTIONA));
 }
 
+async function ensureTraderaHouse(): Promise<void> {
+  await upsertHouse("tradera", "Tradera", "tradera.com", feeModelFor("tradera"));
+}
+
 /** Registrera alla hus på GAK-plattformen (Göteborgs Auktionskammare, Auktionskammaren ...). */
 async function ensureGakHouses(): Promise<void> {
   for (const h of GAK_HOUSES) {
@@ -268,6 +272,7 @@ async function main(): Promise<void> {
       await ensureBudiHouse();
       await ensureVaxxaHouse();
       await ensureAuktionaHouse();
+      await ensureTraderaHouse();
       const connector = new TovekConnector();
       const flatSources = [
         new AuctionetConnector(),
@@ -421,6 +426,22 @@ async function main(): Promise<void> {
         log: (m) => console.log(m),
       });
       console.log(`Tradera aktiv-träning klar: ${JSON.stringify(stats)}`);
+      break;
+    }
+
+    case "tradera-active": {
+      // Engångs-backfill av AKTIVA Tradera-objekt → items (syns i sök/listor).
+      // Slutar-snart-först per rot-kategori. GDPR: ingen säljaridentitet.
+      await initSchema();
+      await ensureTraderaHouse();
+      const rootsArg = args.indexOf("--roots");
+      const pagesArg = args.indexOf("--pages");
+      const stats = await crawlTraderaActiveSweep({
+        rootsPerCycle: rootsArg > -1 ? Number(args[rootsArg + 1]) : undefined,
+        pagesPerRoot: pagesArg > -1 ? Number(args[pagesArg + 1]) : undefined,
+        log: (m) => console.log(m),
+      });
+      console.log(`Tradera aktiv-backfill klar: ${JSON.stringify(stats)}`);
       break;
     }
 
@@ -776,6 +797,7 @@ async function main(): Promise<void> {
           "  ingest-upplands                              Ingest + historik-backfill av Upplands Auktionsverk",
           "  ingest-gak [--pages N]                       Ingest av Göteborgs Auktionskammare",
           "  tradera-sold [--root ID] [--max-depth N] [--max-fetches N] [--fresh]  Crawla Traderas sålda → prishistorik",
+          "  tradera-active [--roots N] [--pages N]       Backfill av aktiva Tradera-objekt → items (slutar-snart-först)",
           "  ingest-metropol                              Ingest av Metropol Auktioner",
           "  ingest-pantbanken                            Ingest av Pantbanken (pantauktioner)",
           "  ingest-budi                                  Ingest av Budi Auktioner (konkurs/B2B)",

@@ -32,7 +32,7 @@ import { geocodePass } from "../geo/geocode.ts";
 import { estimatePass } from "../price/estimate.ts";
 import { mirrorPendingImages } from "../storage/images.ts";
 import { backfillEndedBatch } from "./backfill.ts";
-import { crawlTraderaFresh, crawlTraderaSold } from "../connectors/tradera/index.ts";
+import { crawlTraderaActiveSweep, crawlTraderaFresh, crawlTraderaSold } from "../connectors/tradera/index.ts";
 import { trainTraderaLexiconPass } from "../categories/train-tradera.ts";
 import {
   backfillFlatEnded,
@@ -89,6 +89,11 @@ const TRADERA_BACKFILL_FETCHES = Number(process.env.TRADERA_BACKFILL_FETCHES ?? 
 // Lexikon-träning på Traderas märkta data (växer med crawlen).
 const TRADERA_TRAIN_MS = Number(process.env.TRADERA_TRAIN_MS ?? 300_000); // 5 min
 const TRADERA_TRAIN_ROWS = Number(process.env.TRADERA_TRAIN_ROWS ?? 20_000);
+// AKTIVA Tradera-objekt till items (syns i sök/listor): slutar-snart-först per rot,
+// roterande cursor, försiktig takt (samma CloakBrowser-pool som sålt-passen).
+const TRADERA_ACTIVE_MS = Number(process.env.TRADERA_ACTIVE_MS ?? 600_000); // 10 min
+const TRADERA_ACTIVE_ROOTS = Number(process.env.TRADERA_ACTIVE_ROOTS ?? 8);
+const TRADERA_ACTIVE_PAGES = Number(process.env.TRADERA_ACTIVE_PAGES ?? 3);
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Senaste tät-refresh av sida 1 per hus (för "slutar snart"-sorterade källor). */
@@ -357,6 +362,8 @@ export async function runScheduler(
   let traderaBackfillRunning = false;
   let lastTraderaTrain = 0;
   let traderaTrainRunning = false;
+  let lastTraderaActive = 0;
+  let traderaActiveRunning = false;
 
   log(
     `Schemaläggare startad: full=${FULL_REFRESH_MS}ms, tick=${BASE_TICK_MS}ms ` +
@@ -544,6 +551,19 @@ export async function runScheduler(
           .then((r) => { if (r.stored > 0) log(`tradera-fresh: ${r.stored} sålda upsertade (${r.categories} kat, ${r.fetches} hämtn.)`); })
           .catch((e) => log(`tradera-fresh fel: ${(e as Error).message}`))
           .finally(() => { traderaFreshRunning = false; });
+      }
+
+      // Tradera AKTIVA objekt → items (syns i sök/listor): slutar-snart-först per rot,
+      // roterande cursor → bud/sluttid fräschas via upsert, finalizePastDue avslutar dem.
+      // Browser-tungt → i BAKGRUNDEN (ej await), guard mot överlapp. GDPR: ingen
+      // säljaridentitet (mapActiveItem behåller aldrig alias/memberId).
+      if (TRADERA_ENABLED && !traderaActiveRunning && now - lastTraderaActive >= TRADERA_ACTIVE_MS) {
+        lastTraderaActive = now;
+        traderaActiveRunning = true;
+        void crawlTraderaActiveSweep({ rootsPerCycle: TRADERA_ACTIVE_ROOTS, pagesPerRoot: TRADERA_ACTIVE_PAGES })
+          .then((r) => { if (r.stored > 0) log(`tradera-aktiv: ${r.stored} aktiva upsertade (${r.categories} kat, ${r.fetches} hämtn.)`); })
+          .catch((e) => log(`tradera-aktiv fel: ${(e as Error).message}`))
+          .finally(() => { traderaActiveRunning = false; });
       }
 
       // Tradera DJUP backfill (MAX DJUP - allt): full adaptiv crawl med PRIS-SLICING som
