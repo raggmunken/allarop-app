@@ -2,9 +2,11 @@
  * Semantiskt sökindex: in-memory-index över AKTIVA objekts text-embeddings (e5-small) →
  * en sökfrågas query-vektor jämförs (cosinus) mot alla objekt-vektorer. Brute-force är
  * trivialt för <100k aktiva (384-dim prickprodukt). Indexet laddas lat och uppdateras på
- * TTL (nya embeddings trillar in via backfillen). Utgör den semantiska halvan av hybrid-
- * söken (repo.ts fuserar detta med den lexikala trigram-söken via RRF). Sidecar nere eller
- * tomt index → semanticTopK returnerar [] och söken degraderar till ren lexikal.
+ * TTL (nya embeddings trillar in via backfillen) - reloaden sker i BAKGRUNDEN
+ * (stale-while-revalidate) så sökningar aldrig blockeras av den. Utgör den semantiska
+ * halvan av hybrid-söken (repo.ts fuserar detta med den lexikala trigram-söken via RRF).
+ * Sidecar nere eller tomt index → semanticTopK returnerar [] och söken degraderar till
+ * ren lexikal.
  */
 
 import { pool } from "../db/pool.ts";
@@ -17,14 +19,27 @@ interface TextRow {
   vec: Float32Array;
 }
 
-const REFRESH_MS = Number(process.env.TEXT_INDEX_TTL_MS ?? 600_000); // 10 min
+const REFRESH_MS = Number(process.env.TEXT_INDEX_TTL_MS ?? 1_200_000); // 20 min
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let index: TextRow[] = [];
 let loadedAt = 0;
 let loading: Promise<void> | null = null;
 
+/**
+ * Stale-while-revalidate: sökningen får ALDRIG blockeras av en index-reload.
+ * Vid TTL-utgång startas reloaden i BAKGRUNDEN och sökningar använder det gamla
+ * indexet tills det nya är klart. Vid kallstart (API-omstart) väntas max 2 s -
+ * är DB/sidecarn långsam faller sökningen tillbaka på lexikal den gången i
+ * stället för att hänga en halv minut (buggen: helreload var 10:e minut blockade
+ * sökningen ~30-60 s med växande datamängd).
+ */
 async function ensureLoaded(): Promise<void> {
   if (Date.now() - loadedAt < REFRESH_MS && index.length > 0) return;
-  if (loading) return loading;
+  if (loading) {
+    // Pågående reload: kallstart väntar vi kort på den; annars servera gammalt index.
+    if (index.length === 0) await Promise.race([loading, sleep(2_000)]);
+    return;
+  }
   loading = (async () => {
     try {
       const { rows } = await pool.query<{ house: string; external_id: string; emb: Buffer }>(
@@ -34,10 +49,12 @@ async function ensureLoaded(): Promise<void> {
            AND i.text_embedding IS NOT NULL AND octet_length(i.text_embedding) > 0`,
       );
       const next: TextRow[] = [];
-      for (const r of rows) {
-        const vec = decodeVec(r.emb);
-        if (vec == null) continue;
-        next.push({ house: r.house, external_id: r.external_id, vec });
+      for (let i = 0; i < rows.length; i++) {
+        const vec = decodeVec(rows[i]!.emb);
+        if (vec != null) next.push({ house: rows[i]!.house, external_id: rows[i]!.external_id, vec });
+        // Lämna event-loopen var 500:e rad - avkodningen är synkron CPU och får inte
+        // frysa API:ts övriga requests (även i bakgrunds-reloaden).
+        if (i % 500 === 499) await new Promise((r) => setImmediate(r));
       }
       index = next;
       loadedAt = Date.now();
@@ -45,7 +62,7 @@ async function ensureLoaded(): Promise<void> {
       loading = null;
     }
   })();
-  return loading;
+  if (index.length === 0) await Promise.race([loading, sleep(2_000)]);
 }
 
 export interface SemanticHit {
