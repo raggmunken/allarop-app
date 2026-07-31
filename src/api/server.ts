@@ -13,6 +13,8 @@ import { dirname, join } from "node:path";
 import { pool } from "../db/pool.ts";
 import {
   categoryFacets,
+  getHiddenHouses,
+  invalidateHidden,
   listActive,
   listHouses,
   listSellers,
@@ -22,6 +24,7 @@ import {
   priceHistory,
   priceStats,
   saveMatchVerdict,
+  setHiddenHouses,
 } from "../db/repo.ts";
 import { hasApiKey, verifySameObject } from "../ai/imageverify.ts";
 import { ItemAttrs } from "../db/similar.ts";
@@ -303,7 +306,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   // (showAdminGate). Ingen publik länk pekar hit och de ska inte indexeras/synas i sök -
   // noindex via HTTP-header (funkar oavsett JS-rendering, till skillnad från en meta-tagg
   // som skulle krävt path-specifik HTML). Fortsatt nåbara om man skriver URL:en direkt.
-  if (url.pathname === "/rutt" || url.pathname === "/priser") {
+  if (url.pathname === "/rutt" || url.pathname === "/priser" || url.pathname === "/admin") {
     return serveApp(res, { "x-robots-tag": "noindex, nofollow" });
   }
   // Juridisk sida (publik): Om, Villkor, Integritetspolicy, Kontakt/takedown är EN sida
@@ -633,6 +636,46 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const house = url.searchParams.get("house") || undefined;
     const [houses, sellers] = await Promise.all([listHouses(), listSellers(house)]);
     return send(res, 200, { houses, sellers });
+  }
+
+  // Admin: hus-synlighet (vilka hus som syns i UI:t). GET listar alla registrerade hus
+  // med aktiv-räkning + hidden-flagga (dolda syns HÄR - det är ju här man slår på dem igen).
+  if (url.pathname === "/admin/houses" && req.method === "GET") {
+    if (!requireAdmin(req, res)) return;
+    const hidden = await getHiddenHouses();
+    const { rows } = await pool.query<{ key: string; name: string; active_count: string }>(
+      `SELECT ah.key, ah.name,
+              (SELECT count(*) FROM items i WHERE i.house=ah.key AND i.status='active'
+                AND (i.ends_at IS NULL OR i.ends_at > now())) AS active_count
+       FROM auction_houses ah ORDER BY active_count DESC, ah.name`,
+    );
+    return send(res, 200, {
+      houses: rows.map((r) => ({
+        house: r.key, name: r.name, activeCount: Number(r.active_count),
+        hidden: hidden.includes(r.key),
+      })),
+    });
+  }
+
+  // Admin: slå av/på ett hus. Body: {house, hidden} - eller {houses: [...]} (hela listan).
+  if (url.pathname === "/admin/houses/visibility" && req.method === "POST") {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const b = JSON.parse(await readBody(req)) as { house?: string; hidden?: boolean; houses?: string[] };
+      if (Array.isArray(b.houses)) {
+        await setHiddenHouses(b.houses);
+      } else if (typeof b.house === "string" && typeof b.hidden === "boolean") {
+        const cur = new Set(await getHiddenHouses());
+        if (b.hidden) cur.add(b.house); else cur.delete(b.house);
+        await setHiddenHouses([...cur]);
+      } else {
+        return send(res, 400, { error: "ange {house, hidden} eller {houses: [...]}" });
+      }
+      invalidateHidden();
+      return send(res, 200, { ok: true, hidden: await getHiddenHouses() });
+    } catch {
+      return send(res, 400, { error: "ogiltig JSON" });
+    }
   }
 
   if (url.pathname === "/items") {

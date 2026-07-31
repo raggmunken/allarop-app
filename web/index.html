@@ -441,6 +441,20 @@
   .rp-err{color:#dc2626;font-size:13px;margin-top:10px;min-height:1px}
   .rp-out{min-height:120px}
   .rp-empty{color:var(--ink-faint);font-size:14px;padding:34px 18px;text-align:center;border:1px dashed var(--line-2);border-radius:var(--r)}
+  /* Admin: hus-synlighetslistan (/admin). */
+  .ahlist{display:flex;flex-direction:column;gap:8px;max-width:720px}
+  .ahrow{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:12px 16px;transition:border-color .15s,opacity .15s}
+  .ahrow:hover{border-color:var(--line-2)}
+  .ahrow.off{opacity:.55}
+  .ahrow .ahname{flex:1;min-width:0;font-weight:600;font-size:15px}
+  .ahrow .ahcnt{font-size:12.5px;color:var(--ink-faint);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .ahswitch{position:relative;width:44px;height:24px;flex:none;cursor:pointer}
+  .ahswitch input{position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;margin:0}
+  .ahswitch .track{position:absolute;inset:0;border-radius:99px;background:var(--line-2);transition:background .18s}
+  .ahswitch .knob{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .18s}
+  .ahswitch input:checked~.track{background:var(--accent)}
+  .ahswitch input:checked~.knob{transform:translateX(20px)}
+  .ahnote{font-size:12.5px;color:var(--ink-faint);margin-top:10px}
   .rp-cards{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px}
   .rp-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px 15px;box-shadow:var(--sh-sm)}
   .rp-card .k{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em}
@@ -859,6 +873,17 @@
         <button class="rp-go plgo" type="submit">Slå upp</button>
       </form>
       <div id="plOut"></div>
+    </div>
+
+    <!-- Admin (egen sida /admin): hus-synlighet - slå av/på vilka auktionshus som syns. -->
+    <div id="adminpanel" style="display:none">
+      <div class="rp-head">
+        <div>
+          <h2 class="rp-h">Admin – hus-synlighet</h2>
+          <p class="rp-sub">Slå av/på vilka auktionshus som syns i sök, listor och källfilter. Datan ligger kvar och krypet fortsätter – ändringen är direkt reversibel.</p>
+        </div>
+      </div>
+      <div class="ahlist" id="ahList"><div class="rp-empty">Laddar hus…</div></div>
     </div>
 
     <!-- Admin-gate: visas när en ej inloggad besökare öppnar en personlig sida (/priser, /rutt). -->
@@ -1939,6 +1964,45 @@ function priceChart(series){
   return `<div class="plchart"><div class="plctitle">Totalkostnad över tid<span>${trendTxt} · ${n} sålda · inkl. avgifter+moms</span></div>
     <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Pris över tid">${grid}${dots}${trend}${xlbl}</svg></div>`;
 }
+// Admin-sidan (/admin): hus-synlighet. Checkbox slår av/på ett hus direkt mot API:t.
+async function loadAdminHouses(){
+  const el=document.getElementById("ahList");
+  try{
+    const d=await fetch(`${API}/admin/houses`,{cache:"no-store"}).then(r=>r.json());
+    const hs=d.houses||[];
+    if(!hs.length){el.innerHTML=`<div class="rp-empty">Inga hus registrerade ännu.</div>`;return;}
+    const hiddenN=hs.filter(h=>h.hidden).length;
+    el.innerHTML=hs.map(h=>`
+      <div class="ahrow${h.hidden?" off":""}" data-house="${esc(h.house)}">
+        <label class="ahswitch" title="${h.hidden?"Slå på":"Slå av"} ${esc(h.name)}">
+          <input type="checkbox" ${h.hidden?"":"checked"} data-h="${esc(h.house)}" aria-label="Visa ${esc(h.name)}">
+          <span class="track"></span><span class="knob"></span>
+        </label>
+        <span class="ahname">${esc(h.name)}</span>
+        <span class="ahcnt">${fmt(h.activeCount)} aktiva</span>
+      </div>`).join("")+
+      `<div class="ahnote">${hiddenN?`${hiddenN} hus dolda just nu – de syns inte i sök, listor eller källfilter.`:"Alla hus syns just nu."} Ändringar gäller direkt.</div>`;
+    el.querySelectorAll("input[type=checkbox]").forEach(cb=>cb.addEventListener("change",async()=>{
+      const house=cb.dataset.h,hidden=!cb.checked;
+      cb.disabled=true;
+      try{
+        await fetch(`${API}/admin/houses/visibility`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({house,hidden})});
+        cb.closest(".ahrow").classList.toggle("off",hidden);
+        stats(); // live-räknaren i navet speglar direkt
+      }catch{cb.checked=!cb.checked;} // fel → återställ visningen
+      cb.disabled=false;
+    }));
+  }catch{el.innerHTML=`<div class="rp-empty">Kunde inte ladda huslistan.</div>`;}
+}
+function enterAdminPage(){
+  document.title="Admin - Allarop";
+  const h=document.querySelector("header.hero");if(h)h.style.display="none";
+  const c=document.getElementById("controls");if(c)c.style.display="none";
+  const g=document.getElementById("grid");if(g)g.style.display="none";
+  const d=document.getElementById("discover");if(d)d.hidden=true;
+  document.getElementById("adminpanel").style.display="block";
+  loadAdminHouses();
+}
 function enterPricePage(){
   document.title="Prisuppslag - Allarop";
   const h=document.querySelector("header.hero");if(h)h.style.display="none";
@@ -2246,6 +2310,7 @@ async function boot(){
   applyAdminUI(sess);
   if(PAGEPATH==="/rutt"){IS_ADMIN?enterRoutePage():showAdminGate("Ruttplanerare");stats();}
   else if(PAGEPATH==="/priser"){IS_ADMIN?enterPricePage():showAdminGate("Prisuppslag");stats();}
+  else if(PAGEPATH==="/admin"){IS_ADMIN?enterAdminPage():showAdminGate("Admin");stats();}
   else{load();stats();loadCategories();loadLocations();loadRates().then(()=>{if(document.querySelectorAll(".card").length)refreshInPlace();});}
   // Personliga funktioner (bevakning/notiser/push) laddas bara för inloggad admin.
   if(IS_ADMIN){loadWatched();refreshBell();setInterval(refreshBell,45000);initPush();handleNotifUrlParams();}

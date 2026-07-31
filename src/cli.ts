@@ -68,7 +68,7 @@ import { backfillEndedBatch } from "./scheduler/backfill.ts";
 import { runScheduler } from "./scheduler/poll.ts";
 import { startApi } from "./api/server.ts";
 import { reconSite, summarizeProfile } from "./recon/capture.ts";
-import { crawlTraderaSold, crawlTraderaActiveTrain, crawlTraderaActiveSweep } from "./connectors/tradera/index.ts";
+import { crawlTraderaActiveAll, crawlTraderaSold, crawlTraderaActiveTrain, crawlTraderaActiveSweep } from "./connectors/tradera/index.ts";
 import { closeBrowser } from "./browser/cloak.ts";
 
 const args = process.argv.slice(2);
@@ -445,6 +445,25 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "tradera-active-all": {
+      // FULL aktiv-crawl: adaptiv (pris-slicing) över ALLA aktiva Tradera-objekt → items,
+      // med rekon mot borttagna när ett helt varv avslutats. Långpass (timmar-dagar).
+      await initSchema();
+      await ensureTraderaHouse();
+      const rootArg = args.indexOf("--root");
+      const depthArg = args.indexOf("--max-depth");
+      const fetchArg = args.indexOf("--max-fetches");
+      const stats = await crawlTraderaActiveAll({
+        rootId: rootArg > -1 ? Number(args[rootArg + 1]) : undefined,
+        maxDepth: depthArg > -1 ? Number(args[depthArg + 1]) : undefined,
+        maxFetches: fetchArg > -1 ? Number(args[fetchArg + 1]) : undefined,
+        resume: !flag("fresh"),
+        log: (m) => console.log(m),
+      });
+      console.log(`Tradera full aktiv-crawl klar: ${JSON.stringify(stats)}`);
+      break;
+    }
+
     case "ingest-auctionet": {
       await initSchema();
       await ensureAuctionetHouse();
@@ -798,6 +817,7 @@ async function main(): Promise<void> {
           "  ingest-gak [--pages N]                       Ingest av Göteborgs Auktionskammare",
           "  tradera-sold [--root ID] [--max-depth N] [--max-fetches N] [--fresh]  Crawla Traderas sålda → prishistorik",
           "  tradera-active [--roots N] [--pages N]       Backfill av aktiva Tradera-objekt → items (slutar-snart-först)",
+          "  tradera-active-all [--root ID] [--max-depth N] [--max-fetches N] [--fresh]  FULL aktiv-crawl (komplett täckning + rekon)",
           "  ingest-metropol                              Ingest av Metropol Auktioner",
           "  ingest-pantbanken                            Ingest av Pantbanken (pantauktioner)",
           "  ingest-budi                                  Ingest av Budi Auktioner (konkurs/B2B)",

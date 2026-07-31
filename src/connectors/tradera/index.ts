@@ -23,6 +23,8 @@ import {
   getJobState,
   setJobState,
 } from "../../db/repo.ts";
+import { pool } from "../../db/pool.ts";
+import { addEnded } from "../../scheduler/indexnow.ts";
 import { feeModelForItem } from "../../fees/rules.ts";
 import { traderaCategoryToKey } from "../../categories/tradera-map.ts";
 import { lexicon } from "../../categories/learned.ts";
@@ -102,22 +104,35 @@ async function fetchSold(
 // Seed-band för pris-slicing (SEK). Skevt (mest billigt) → täta låga band, glesa höga.
 const PRICE_SEEDS = [0, 100, 200, 300, 500, 1000, 2500, 10000, 100000, 5_000_000];
 
+/** Skördare för en sidas objekt (sålt → price_history; aktivt → items). */
+type HarvestFn = (
+  items: ReturnType<typeof parseSoldSearch>["items"],
+  categoryName: string,
+) => Promise<number>;
+
+/** Crawl-läge: vilken objekttyp som skördas + sortering + skördare. */
+interface CrawlMode {
+  status: "Sold" | "Active";
+  sortBy: string;
+  harvest: HarvestFn;
+}
+
 /** Skörda en slices ALLA sidor (upp till taket). Returnerar antal lagrade. */
 async function harvestAllPages(
   catId: number, name: string, sp: SoldSlice, first: Awaited<ReturnType<typeof fetchSold>>,
-  req: Required<Pick<CrawlOptions, "maxFetches">>, stats: CrawlStats,
+  req: Required<Pick<CrawlOptions, "maxFetches">>, stats: CrawlStats, mode: CrawlMode,
 ): Promise<void> {
-  let stored = await harvestItems(first.items, name);
+  let stored = await mode.harvest(first.items, name);
   const accessible = Math.min(first.totalItemCount, first.itemsMatchedWithCap || CAP);
   const pages = Math.ceil(accessible / PAGE_SIZE);
   for (let p = 2; p <= pages; p++) {
     if (req.maxFetches && stats.fetches >= req.maxFetches) break;
     await sleep(300);
     let r;
-    try { r = await fetchSold(catId, p, sp); } catch { break; }
+    try { r = await fetchSold(catId, p, sp, mode.status, mode.sortBy); } catch { break; }
     stats.fetches++;
     if (!r.items.length) break;
-    stored += await harvestItems(r.items, name);
+    stored += await mode.harvest(r.items, name);
   }
   stats.stored += stored;
 }
@@ -130,39 +145,39 @@ async function harvestAllPages(
  */
 async function harvestSlice(
   catId: number, name: string, sp: SoldSlice,
-  req: Required<Pick<CrawlOptions, "maxFetches">>, stats: CrawlStats,
+  req: Required<Pick<CrawlOptions, "maxFetches">>, stats: CrawlStats, mode: CrawlMode,
 ): Promise<void> {
   if (req.maxFetches && stats.fetches >= req.maxFetches) return;
   let res;
-  try { res = await fetchSold(catId, 1, sp); } catch { return; }
+  try { res = await fetchSold(catId, 1, sp, mode.status, mode.sortBy); } catch { return; }
   stats.fetches++;
   const total = res.totalItemCount;
   if (total === 0) return;
-  if (total <= CAP) { await harvestAllPages(catId, name, sp, res, req, stats); return; }
+  if (total <= CAP) { await harvestAllPages(catId, name, sp, res, req, stats, mode); return; }
   // Över taket → dela. 1) pris (om bandet har bredd).
   if (sp.price && sp.price.hi - sp.price.lo > 1) {
     const mid = Math.floor((sp.price.lo + sp.price.hi) / 2);
-    await harvestSlice(catId, name, { ...sp, price: { lo: sp.price.lo, hi: mid } }, req, stats);
-    await harvestSlice(catId, name, { ...sp, price: { lo: mid, hi: sp.price.hi } }, req, stats);
+    await harvestSlice(catId, name, { ...sp, price: { lo: sp.price.lo, hi: mid } }, req, stats, mode);
+    await harvestSlice(catId, name, { ...sp, price: { lo: mid, hi: sp.price.hi } }, req, stats, mode);
     return;
   }
   // 2) län (21) - bryter pris-golvet (många objekt på samma pris fördelas över län).
   if (!sp.county) {
-    for (const c of COUNTIES) { if (req.maxFetches && stats.fetches >= req.maxFetches) return; await harvestSlice(catId, name, { ...sp, county: c }, req, stats); }
+    for (const c of COUNTIES) { if (req.maxFetches && stats.fetches >= req.maxFetches) return; await harvestSlice(catId, name, { ...sp, county: c }, req, stats, mode); }
     return;
   }
   // 3) objekttyp (3).
   if (!sp.itemType) {
-    for (const t of ITEM_TYPES) { if (req.maxFetches && stats.fetches >= req.maxFetches) return; await harvestSlice(catId, name, { ...sp, itemType: t }, req, stats); }
+    for (const t of ITEM_TYPES) { if (req.maxFetches && stats.fetches >= req.maxFetches) return; await harvestSlice(catId, name, { ...sp, itemType: t }, req, stats, mode); }
     return;
   }
   // 4) säljartyp (2).
   if (!sp.sellerType) {
-    for (const s of SELLER_TYPES) { if (req.maxFetches && stats.fetches >= req.maxFetches) return; await harvestSlice(catId, name, { ...sp, sellerType: s }, req, stats); }
+    for (const s of SELLER_TYPES) { if (req.maxFetches && stats.fetches >= req.maxFetches) return; await harvestSlice(catId, name, { ...sp, sellerType: s }, req, stats, mode); }
     return;
   }
   // Alla dimensioner uttömda och fortf. >500 (i praktiken aldrig) → ta de 500 vi når.
-  await harvestAllPages(catId, name, sp, res, req, stats);
+  await harvestAllPages(catId, name, sp, res, req, stats, mode);
 }
 
 /** Skörda en kategori HELT via seed-prisband + flerdimensionell slicing. */
@@ -171,10 +186,11 @@ async function harvestBanded(
   name: string,
   req: Required<Pick<CrawlOptions, "maxFetches">>,
   stats: CrawlStats,
+  mode: CrawlMode,
 ): Promise<void> {
   for (let i = 0; i < PRICE_SEEDS.length - 1; i++) {
     if (req.maxFetches && stats.fetches >= req.maxFetches) return;
-    await harvestSlice(catId, name, { price: { lo: PRICE_SEEDS[i]!, hi: PRICE_SEEDS[i + 1]! } }, req, stats);
+    await harvestSlice(catId, name, { price: { lo: PRICE_SEEDS[i]!, hi: PRICE_SEEDS[i + 1]! } }, req, stats, mode);
   }
 }
 
@@ -202,13 +218,14 @@ async function crawlCategory(
   stats: CrawlStats,
   log: (m: string) => void,
   seen: Set<number>,
+  mode: CrawlMode,
 ): Promise<void> {
   if (opts.maxFetches && stats.fetches >= opts.maxFetches) return;
   if (seen.has(categoryId)) return; // cykelskydd (Traderas fasett kan peka tillbaka uppåt)
   seen.add(categoryId);
   let first;
   try {
-    first = await fetchSold(categoryId, 1);
+    first = await fetchSold(categoryId, 1, {}, mode.status, mode.sortBy);
   } catch (e) {
     log(`  [${categoryName}] hoppar över: ${(e as Error).message}`);
     return;
@@ -222,10 +239,10 @@ async function crawlCategory(
 
   // Överstiger taket och har (nya) underkategorier → gå djupare för granulära etiketter.
   if (total > CAP && depth < opts.maxDepth && kids.length > 0) {
-    log(`  [${categoryName}] ${total} sålda > ${CAP} → delar i ${kids.length} underkategorier`);
+    log(`  [${categoryName}] ${total} ${mode.status === "Sold" ? "sålda" : "aktiva"} > ${CAP} → delar i ${kids.length} underkategorier`);
     for (const child of kids) {
       if (opts.maxFetches && stats.fetches >= opts.maxFetches) return;
-      await crawlCategory(child.id, child.name || categoryName, depth + 1, opts, stats, log, seen);
+      await crawlCategory(child.id, child.name || categoryName, depth + 1, opts, stats, log, seen, mode);
     }
     return;
   }
@@ -235,26 +252,26 @@ async function crawlCategory(
   stats.categories++;
   const before = stats.stored;
   if (total > CAP) {
-    await harvestBanded(categoryId, categoryName, opts, stats);
+    await harvestBanded(categoryId, categoryName, opts, stats, mode);
   } else {
-    let stored = await harvestItems(first.items, categoryName);
+    let stored = await mode.harvest(first.items, categoryName);
     const pages = Math.ceil(accessible / PAGE_SIZE);
     for (let p = 2; p <= pages; p++) {
       if (opts.maxFetches && stats.fetches >= opts.maxFetches) break;
       await sleep(400);
       let res;
       try {
-        res = await fetchSold(categoryId, p);
+        res = await fetchSold(categoryId, p, {}, mode.status, mode.sortBy);
       } catch {
         break;
       }
       stats.fetches++;
       if (!res.items.length) break;
-      stored += await harvestItems(res.items, categoryName);
+      stored += await mode.harvest(res.items, categoryName);
     }
     stats.stored += stored;
   }
-  log(`  [${categoryName}] ${total} sålda, lagrade ${stats.stored - before}${total > CAP ? " (pris-slicing)" : ""} (djup ${depth})`);
+  log(`  [${categoryName}] ${total} ${mode.status === "Sold" ? "sålda" : "aktiva"}, lagrade ${stats.stored - before}${total > CAP ? " (pris-slicing)" : ""} (djup ${depth})`);
 }
 
 /**
@@ -307,6 +324,7 @@ export async function crawlTraderaSold(opts: CrawlOptions = {}): Promise<CrawlSt
   // granulära etiketter + mindre per-löv-slicing. Djupare-än-löv stannar naturligt (inga barn).
   const req = { maxDepth: opts.maxDepth ?? 8, maxFetches: opts.maxFetches ?? 0 };
   const stats: CrawlStats = { fetches: 0, stored: 0, categories: 0 };
+  const mode: CrawlMode = { status: "Sold", sortBy: "EndDateDescending", harvest: harvestItems };
 
   const roots = opts.rootId != null
     ? TRADERA_ROOTS.filter((r) => r.id === opts.rootId)
@@ -332,7 +350,7 @@ export async function crawlTraderaSold(opts: CrawlOptions = {}): Promise<CrawlSt
     const r = roots[i];
     if (!r) continue;
     log(`Rot ${i + 1}/${roots.length}: ${r.name} (${r.id})`);
-    await crawlCategory(r.id, r.name, 0, req, stats, log, new Set<number>());
+    await crawlCategory(r.id, r.name, 0, req, stats, log, new Set<number>(), mode);
     if (useCursor) {
       const next = i + 1 >= roots.length ? 0 : i + 1;
       await setJobState(JOB, next, roots.length, next === 0);
@@ -348,6 +366,7 @@ const ACTIVE_SWEEP_JOB = "tradera-active-sweep";
 /** Skriv en sidas AKTIVA objekt till items (upsert = fräsch bid/tid varje svep). */
 async function harvestActiveItems(
   items: ReturnType<typeof parseSoldSearch>["items"],
+  _categoryName = "",
 ): Promise<number> {
   let n = 0;
   for (const raw of items) {
@@ -406,6 +425,75 @@ export async function crawlTraderaActiveSweep(opts: {
   }
   await setJobState(ACTIVE_SWEEP_JOB, idx, n, idx === 0);
   log(`tradera-aktiv: ${stats.stored} aktiva upsertade från ${stats.categories} kategorier (${stats.fetches} hämtningar)`);
+  return stats;
+}
+
+/* ---- FULL aktiv-crawl (komplett täckning) + rekon mot borttagna objekt ---- */
+
+const ACTIVE_ALL_JOB = "tradera-active-all";
+
+/**
+ * FULL aktiv-crawl (samma adaptiva maskin som sålt-backfillen, men itemStatus=Active):
+ * rekurserar kategoriträdet, pris-slicer noder över 500-taket (bisekt → län → objekttyp
+ * → säljartyp) och upsertar ALLA aktiva Tradera-objekt till items. Återupptagbar cursor
+ * (job_state "tradera-active-all") så passet kan pågå i dagar utan att börja om.
+ *
+ * REKON (komplettheten): när ett helt varv (alla 33 rötter) avslutats markeras Tradera-
+ * objekt som fortfarande står som 'active' men INTE setts under varvet (last_seen äldre
+ * än varvets start) som 'ended' - de är sålda/borttagna hos Tradera. Utan detta skulle
+ * fastpris-annonser utan sluttid hänga kvar för evigt. IndexNow pingas för flippen.
+ */
+export async function crawlTraderaActiveAll(opts: CrawlOptions = {}): Promise<CrawlStats> {
+  const log = opts.log ?? (() => {});
+  const req = { maxDepth: opts.maxDepth ?? 8, maxFetches: opts.maxFetches ?? 0 };
+  const stats: CrawlStats = { fetches: 0, stored: 0, categories: 0 };
+  const mode: CrawlMode = { status: "Active", sortBy: "EndDateAscending", harvest: harvestActiveItems };
+  const varvStart = new Date();
+
+  const roots = opts.rootId != null
+    ? TRADERA_ROOTS.filter((r) => r.id === opts.rootId)
+    : TRADERA_ROOTS;
+  if (roots.length === 0) return stats;
+
+  let startIdx = 0;
+  const useCursor = opts.rootId == null && opts.resume !== false;
+  if (useCursor) {
+    const st = await getJobState(ACTIVE_ALL_JOB);
+    startIdx = st.done ? 0 : Math.min(st.cursor_offset, roots.length - 1);
+  }
+
+  for (let i = startIdx; i < roots.length; i++) {
+    if (req.maxFetches && stats.fetches >= req.maxFetches) {
+      if (useCursor) await setJobState(ACTIVE_ALL_JOB, i, roots.length, false);
+      log(`Fetch-tak (${req.maxFetches}) nått, pausar vid rot ${i}/${roots.length}.`);
+      return stats;
+    }
+    const r = roots[i];
+    if (!r) continue;
+    log(`aktiv-crawl rot ${i + 1}/${roots.length}: ${r.name} (${r.id})`);
+    await crawlCategory(r.id, r.name, 0, req, stats, log, new Set<number>(), mode);
+    if (useCursor) {
+      const next = i + 1 >= roots.length ? 0 : i + 1;
+      await setJobState(ACTIVE_ALL_JOB, next, roots.length, next === 0);
+    }
+  }
+
+  // Helt varv avslutat (inte pausat på fetch-tak) → rekon: avsluta objekt som inte setts.
+  if (opts.rootId == null) {
+    try {
+      const { rows } = await pool.query<{ external_id: string }>(
+        `UPDATE items SET status='ended', last_seen=now()
+         WHERE house='tradera' AND status='active' AND last_seen < $1
+         RETURNING external_id`,
+        [varvStart],
+      );
+      for (const r of rows) addEnded(HOUSE, r.external_id);
+      log(`aktiv-crawl rekon: ${rows.length} objekt markerade ended (ej sedda under varvet)`);
+    } catch (e) {
+      log(`aktiv-crawl rekon fel: ${(e as Error).message}`);
+    }
+    if (useCursor) await setJobState(ACTIVE_ALL_JOB, 0, roots.length, true);
+  }
   return stats;
 }
 

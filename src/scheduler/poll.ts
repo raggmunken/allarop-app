@@ -32,7 +32,7 @@ import { geocodePass } from "../geo/geocode.ts";
 import { estimatePass } from "../price/estimate.ts";
 import { mirrorPendingImages } from "../storage/images.ts";
 import { backfillEndedBatch } from "./backfill.ts";
-import { crawlTraderaActiveSweep, crawlTraderaFresh, crawlTraderaSold } from "../connectors/tradera/index.ts";
+import { crawlTraderaActiveAll, crawlTraderaActiveSweep, crawlTraderaFresh, crawlTraderaSold } from "../connectors/tradera/index.ts";
 import { trainTraderaLexiconPass } from "../categories/train-tradera.ts";
 import {
   backfillFlatEnded,
@@ -94,6 +94,10 @@ const TRADERA_TRAIN_ROWS = Number(process.env.TRADERA_TRAIN_ROWS ?? 20_000);
 const TRADERA_ACTIVE_MS = Number(process.env.TRADERA_ACTIVE_MS ?? 600_000); // 10 min
 const TRADERA_ACTIVE_ROOTS = Number(process.env.TRADERA_ACTIVE_ROOTS ?? 8);
 const TRADERA_ACTIVE_PAGES = Number(process.env.TRADERA_ACTIVE_PAGES ?? 3);
+// FULL aktiv-crawl (komplett täckning, adaptiv pris-slicing): långpass i bakgrunden,
+// delar den tunga browser-sloten med sålt-backfillen (aldrig samtidigt). Efter varje
+// helt varv: rekon som avslutar objekt som inte längre finns hos Tradera.
+const TRADERA_ACTIVE_ALL_MS = Number(process.env.TRADERA_ACTIVE_ALL_MS ?? 1_800_000); // 30 min
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /** Senaste tät-refresh av sida 1 per hus (för "slutar snart"-sorterade källor). */
@@ -364,6 +368,8 @@ export async function runScheduler(
   let traderaTrainRunning = false;
   let lastTraderaActive = 0;
   let traderaActiveRunning = false;
+  let lastTraderaActiveAll = 0;
+  let traderaActiveAllRunning = false;
 
   log(
     `Schemaläggare startad: full=${FULL_REFRESH_MS}ms, tick=${BASE_TICK_MS}ms ` +
@@ -564,6 +570,19 @@ export async function runScheduler(
           .then((r) => { if (r.stored > 0) log(`tradera-aktiv: ${r.stored} aktiva upsertade (${r.categories} kat, ${r.fetches} hämtn.)`); })
           .catch((e) => log(`tradera-aktiv fel: ${(e as Error).message}`))
           .finally(() => { traderaActiveRunning = false; });
+      }
+
+      // Tradera FULL aktiv-crawl (komplett täckning): adaptiv crawl med pris-slicing som
+      // tömmer ALLA aktiva kategorier → items, med rekon vid varje avslutat varv (objekt
+      // som inte längre finns hos Tradera markeras ended). Delar tunga browser-sloten med
+      // sålt-backfillen (kör bara när den inte kör). TRADERA_ENABLED=0 = av.
+      if (TRADERA_ENABLED && !traderaActiveAllRunning && !traderaBackfillRunning && now - lastTraderaActiveAll >= TRADERA_ACTIVE_ALL_MS) {
+        lastTraderaActiveAll = now;
+        traderaActiveAllRunning = true;
+        void crawlTraderaActiveAll({ log: (m) => log(`tradera-aktiv-all ${m}`) })
+          .then((r) => { if (r.stored > 0) log(`tradera-aktiv-all KLAR varv: ${r.stored} aktiva lagrade (${r.categories} kat, ${r.fetches} hämtn.)`); })
+          .catch((e) => log(`tradera-aktiv-all fel: ${(e as Error).message}`))
+          .finally(() => { traderaActiveAllRunning = false; });
       }
 
       // Tradera DJUP backfill (MAX DJUP - allt): full adaptiv crawl med PRIS-SLICING som

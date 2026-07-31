@@ -331,7 +331,56 @@ const ITEM_SELECT = `SELECT ${ITEM_COLS} FROM items i`;
  * (Synonym/böjning/särskrivning kommer i Fas 2.)
  */
 /** SQL-villkor: aktivt objekt (status active och inte passerat sluttiden). */
-const ACTIVE_COND = `(i.status='active' AND (i.ends_at IS NULL OR i.ends_at > now()))`;
+const ACTIVE_BASE = `(i.status='active' AND (i.ends_at IS NULL OR i.ends_at > now()))`;
+
+/**
+ * Hus-döljning (admin): hus i settings.hidden_houses (JSON-array) exkluderas från ALLA
+ * aktiva frågor (listActive/search/houses/kategorier/orter) → de syns inte i UI:t men
+ * datan ligger kvar (krypet fortsätter; döljningen är reversibel). ACTIVE_COND är en
+ * let som refreshHiddenHouses() räknar om - alla frågor interpolerar den vid anropstillfället.
+ */
+let ACTIVE_COND = ACTIVE_BASE;
+let hiddenCache: { keys: string[]; at: number } = { keys: [], at: 0 };
+const HIDDEN_TTL_MS = 30_000;
+
+/** Dolda hus (cache 30 s; ogiltigförklaras direkt vid admin-ändring via invalidateHidden). */
+export async function getHiddenHouses(): Promise<string[]> {
+  if (Date.now() - hiddenCache.at < HIDDEN_TTL_MS) return hiddenCache.keys;
+  try {
+    const { rows } = await pool.query<{ value: string }>(
+      `SELECT value FROM settings WHERE key='hidden_houses'`,
+    );
+    const v = rows[0]?.value;
+    hiddenCache = { keys: v ? (JSON.parse(v) as string[]) : [], at: Date.now() };
+  } catch {
+    hiddenCache = { keys: [], at: Date.now() }; // settings saknas/gammal DB → dölj inget
+  }
+  applyHidden(hiddenCache.keys);
+  return hiddenCache.keys;
+}
+
+function applyHidden(keys: string[]): void {
+  if (!keys.length) { ACTIVE_COND = ACTIVE_BASE; return; }
+  const quoted = keys.map((k) => `'${k.replace(/'/g, "''")}'`).join(",");
+  ACTIVE_COND = `${ACTIVE_BASE} AND i.house NOT IN (${quoted})`;
+}
+
+/** Anropas av admin-endpointen efter ändring → slår igenom direkt (inte efter TTL). */
+export function invalidateHidden(): void {
+  hiddenCache.at = 0;
+}
+
+/** Sätt dolda hus (admin). Skriver settings + uppdaterar ACTIVE_COND direkt. */
+export async function setHiddenHouses(keys: string[]): Promise<void> {
+  const clean = [...new Set(keys.map((k) => String(k).trim()).filter((k) => /^[a-z0-9]+$/.test(k)))];
+  await pool.query(
+    `INSERT INTO settings (key, value, updated_at) VALUES ('hidden_houses',$1,now())
+     ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=now()`,
+    [JSON.stringify(clean)],
+  );
+  hiddenCache = { keys: clean, at: Date.now() };
+  applyHidden(clean);
+}
 
 /**
  * Totalpris normaliserat till SEK för korrekt prissortering över valutor.
@@ -469,6 +518,7 @@ export async function searchItems(
   q: string,
   opts: ListOpts & { expansion?: QueryExpansion | null } = {},
 ): Promise<SearchRow[]> {
+  await getHiddenHouses(); // färsk ACTIVE_COND (dolda hus slås ut här)
   const { limit = 50, offset = 0, house, seller, includeEnded = false, sort, reserve } = opts;
   const synRe = termsRegex(opts.expansion?.synonyms);
   const relRe = termsRegex(opts.expansion?.related);
@@ -575,6 +625,7 @@ export async function hybridSearch(
     semantic?: { house: string; external_id: string }[];
   } = {},
 ): Promise<SearchRow[]> {
+  await getHiddenHouses(); // färsk ACTIVE_COND (dolda hus slås ut här)
   const { limit = 50, offset = 0, house, seller, includeEnded = false, sort, reserve } = opts;
   const sem = opts.semantic ?? [];
   // Ingen semantik → kör den beprövade lexikala söken oförändrad (ren fallback).
@@ -684,6 +735,7 @@ export async function hybridSearch(
 
 /** Startvy/lista (utan sökterm) med sortering + paginering. */
 export async function listActive(opts: ListOpts = {}): Promise<SearchRow[]> {
+  await getHiddenHouses(); // färsk ACTIVE_COND (dolda hus slås ut här)
   const { limit = 60, offset = 0, house, seller, includeEnded = false, sort, reserve } = opts;
   const res = await pool.query<SearchRow>(
     `${ITEM_SELECT}
@@ -1052,6 +1104,7 @@ export interface HouseRow {
  * Returnerar plattformsnyckeln (house) sorterad på antal, flest först.
  */
 export async function listHouses(): Promise<HouseRow[]> {
+  await getHiddenHouses(); // dolda hus försvinner även ur källfiltret
   const res = await pool.query<{ house: string; item_count: string }>(
     `SELECT i.house, count(*) AS item_count
      FROM items i
