@@ -589,7 +589,7 @@ export async function runScheduler(
       // tömmer varje kategori helt (kringgår 500-taket per fråga). En enda långkörande
       // pass (dagar) via cursor - guarden hindrar överlapp, den återupptas vid omstart och
       // loopar om (deduppar + fångar nysålt) när hela trädet är avbetat. TRADERA_ENABLED=0 = av.
-      if (TRADERA_ENABLED && !traderaBackfillRunning && now - lastTraderaBackfill >= TRADERA_BACKFILL_MS) {
+      if (TRADERA_ENABLED && !traderaBackfillRunning && !traderaActiveAllRunning && now - lastTraderaBackfill >= TRADERA_BACKFILL_MS) {
         lastTraderaBackfill = now;
         traderaBackfillRunning = true;
         void crawlTraderaSold({ log: (m) => log(`tradera-backfill ${m}`) })
