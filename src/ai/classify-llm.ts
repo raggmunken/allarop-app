@@ -289,7 +289,7 @@ export async function llmClassifyPass(limit = Number(process.env.AI_CLASSIFY_BAT
        AND NOT (house || '/' || external_id = ANY($2::text[]))
        AND NOT EXISTS (SELECT 1 FROM media m WHERE m.house=i.house AND m.owner_type='item'
                          AND m.owner_external_id=i.external_id AND m.kind='image')
-     ORDER BY cat_conf_rank(category_conf) ASC, ends_at ASC NULLS LAST
+     ORDER BY category_conflict DESC, cat_conf_rank(category_conf) ASC, ends_at ASC NULLS LAST
      LIMIT $1`,
     [limit * 5, [...attempted]],
   );
@@ -309,7 +309,7 @@ export async function llmClassifyPass(limit = Number(process.env.AI_CLASSIFY_BAT
     const hit = lexicon.classify(r.title);
     if (hit) {
       await pool.query(
-        `UPDATE items SET category=$1, category_conf='learned'
+        `UPDATE items SET category=$1, category_conf='learned', category_conflict=false
          WHERE house=$2 AND external_id=$3
            AND cat_conf_rank(category_conf) < cat_conf_rank('learned')`,
         [hit.category, r.house, r.external_id],
@@ -452,7 +452,7 @@ async function selectVisionCandidates(limit: number, includeLearned: boolean): P
        AND (i.category_conf IS NULL OR i.category_conf <> 'llm')
        AND ($3 OR i.category_conf IS DISTINCT FROM 'learned')
        AND NOT (i.house || '/' || i.external_id = ANY($2::text[]))
-     ORDER BY cat_conf_rank(i.category_conf) ASC, i.ends_at ASC NULLS LAST
+     ORDER BY i.category_conflict DESC, cat_conf_rank(i.category_conf) ASC, i.ends_at ASC NULLS LAST
      LIMIT $1`,
     [limit, [...imageAttempted], includeLearned],
   );
@@ -469,7 +469,8 @@ async function writeVerdict(
   // lot_count: nytt värde vinner, annars behålls ev. tidigare (COALESCE). attrs: nya
   // belagda fält MERGAS in (gamla fält behålls); inga attrs → rör inte kolumnen.
   await pool.query(
-    `UPDATE items SET category=$1, category_conf='llm', lot_count=COALESCE($4, lot_count),
+    `UPDATE items SET category=$1, category_conf='llm', category_conflict=false,
+            lot_count=COALESCE($4, lot_count),
             attrs=CASE WHEN $5::jsonb IS NOT NULL
                        THEN COALESCE(items.attrs, '{}'::jsonb) || $5::jsonb
                        ELSE items.attrs END
