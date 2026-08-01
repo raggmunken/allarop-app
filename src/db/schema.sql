@@ -154,6 +154,8 @@ ALTER TABLE items ADD COLUMN IF NOT EXISTS collect_address TEXT;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS freight_help    TEXT;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS forklift_help   TEXT;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS youtube_link    TEXT;
+ALTER TABLE items ADD COLUMN IF NOT EXISTS category_conflict BOOLEAN NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS items_category_conflict_idx ON items (category_conflict) WHERE category_conflict;
 ALTER TABLE parts ADD COLUMN IF NOT EXISTS raw             JSONB;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS raw             JSONB;
 ALTER TABLE bids  ADD COLUMN IF NOT EXISTS raw             JSONB;
@@ -328,12 +330,12 @@ CREATE TABLE IF NOT EXISTS learned_tokens (
 );
 
 -- Konfidens-rang för kategori-klassningar: högre rang skriver aldrig över med lägre.
--- llm (5, facit) > learned (4, LLM-lärt lexikon) > text (3, nyckelord) > house (2) >
+-- human (6, facit) > llm (5) > learned (4, LLM-lärt lexikon) > text (3, nyckelord) > house (2) >
 -- mixed (1) > none (0).
 CREATE OR REPLACE FUNCTION cat_conf_rank(conf TEXT) RETURNS int
 IMMUTABLE LANGUAGE sql AS $$
   SELECT CASE conf
-    WHEN 'llm' THEN 5 WHEN 'learned' THEN 4 WHEN 'text' THEN 3
+    WHEN 'human' THEN 6 WHEN 'llm' THEN 5 WHEN 'learned' THEN 4 WHEN 'text' THEN 3
     WHEN 'house' THEN 2 WHEN 'mixed' THEN 1 ELSE 0 END
 $$;
 
@@ -362,6 +364,7 @@ CREATE TABLE IF NOT EXISTS match_verdicts (
   created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (house, item_external_id, cmp_house, cmp_external_id)
 );
+ALTER TABLE match_verdicts ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'ai';
 
 -- Cursor-state för återupptagbara jobb (t.ex. backfill av avslutade auktioner).
 CREATE TABLE IF NOT EXISTS job_state (
