@@ -2047,11 +2047,14 @@ function enterAdminPage(){
 }
 // ---- Swipe-granskning (egen sida /swipe): kategorisering + prisjämförelse-matchning ----
 let swipeMode="categorization";
-async function loadSwipeCard(){
+async function loadSwipeCard(skip){
   const el=document.getElementById("swipeCard");
   el.innerHTML=`<p>Laddar…</p>`;
+  el.dataset.house="";el.dataset.externalId="";
   try{
-    const card=await fetch(`${API}/swipe/next?mode=${swipeMode}`,{cache:"no-store"}).then(r=>r.json());
+    // skip=hus/id: kortet som just besvarades - ett avvisat kort sorterar först igen.
+    const q=skip?`&skip=${encodeURIComponent(skip.house)}/${encodeURIComponent(skip.externalId)}`:"";
+    const card=await fetch(`${API}/swipe/next?mode=${swipeMode}${q}`,{cache:"no-store"}).then(r=>r.json());
     if(!card){el.innerHTML=`<p>Inget att granska just nu.</p>`;el.dataset.house="";el.dataset.externalId="";return;}
     el.dataset.house=card.house;
     el.dataset.externalId=card.external_id??card.externalId; // categorization: snake_case, comparison: camelCase (se API)
@@ -2074,8 +2077,23 @@ async function decideSwipe(decision){
   if(!el.dataset.house)return; // inget kort att besluta om (tomt/laddar)
   const body={mode:swipeMode,decision,house:el.dataset.house,external_id:el.dataset.externalId};
   if(swipeMode==="comparison"){body.cmp_house=el.dataset.cmpHouse;body.cmp_external_id=el.dataset.cmpExternalId;}
-  try{await fetch(`${API}/swipe/decide`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}catch{}
-  loadSwipeCard();
+  // Nolla kortet DIREKT: ett snabbt dubbelsvep (piltangent på repeat) innan fetchen
+  // hunnit svara får då inget att agera på - annars skickas samma beslut två gånger.
+  const skip={house:body.house,externalId:body.external_id};
+  el.dataset.house="";el.dataset.externalId="";
+  let ok=false;
+  try{
+    const r=await fetch(`${API}/swipe/decide`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    ok=r.ok;
+  }catch{ok=false;}
+  // Aldrig gå vidare på ett misslyckat sparande (t.ex. utgången admin-session) - då
+  // skulle granskaren svepa igenom kort som tyst kastas bort.
+  if(!ok){
+    el.innerHTML=`<p>Kunde inte spara beslutet - försök igen.</p>`;
+    el.dataset.house=skip.house;el.dataset.externalId=skip.externalId; // samma kort kvar → gå att svepa om
+    return;
+  }
+  loadSwipeCard(swipeMode==="categorization"?skip:undefined);
 }
 function enterSwipePage(){
   document.title="Granska - Allarop";

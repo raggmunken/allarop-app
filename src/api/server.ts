@@ -564,7 +564,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
                   WHERE m.house=i.house AND m.owner_type='item' AND m.owner_external_id=i.external_id))/count(*)) bild_pct,
                 round(100.0*count(i.description)/count(*)) desc_pct,
                 round(100.0*count(*) FILTER (WHERE i.total_basis IN ('source','percentage','estimate'))/count(*)) total_pct,
-                round(100.0*count(*) FILTER (WHERE i.category_conf IN ('llm','learned'))/count(*)) ai_pct
+                round(100.0*count(*) FILTER (WHERE i.category_conf IN ('llm','learned','human'))/count(*)) ai_pct
          FROM items i WHERE i.status='active'
          GROUP BY i.house ORDER BY count(*) DESC`,
       ),
@@ -883,7 +883,16 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (!requireAdmin(req, res)) return;
     const mode = url.searchParams.get("mode");
     if (mode === "comparison") return send(res, 200, await nextComparisonCard());
-    if (mode === "categorization") return send(res, 200, await nextCategorizationCard());
+    if (mode === "categorization") {
+      // skip=<house>/<external_id>: hoppa över kortet som just besvarades (ett avvisat
+      // kort sorterar först igen). Delas på FÖRSTA '/' - external_id kan innehålla '/'.
+      const skip = url.searchParams.get("skip") ?? "";
+      const slash = skip.indexOf("/");
+      const exclude = slash > 0
+        ? { house: skip.slice(0, slash), externalId: skip.slice(slash + 1) }
+        : undefined;
+      return send(res, 200, await nextCategorizationCard(exclude));
+    }
     return send(res, 400, { error: "mode måste vara 'categorization' eller 'comparison'" });
   }
   if (url.pathname === "/swipe/decide" && req.method === "POST") {

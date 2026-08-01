@@ -953,7 +953,8 @@ export async function priceStats(
     item_category_conf: string | null;
   }): boolean => {
     if (tMain == null) return true; // målet oklassat → kan ej gata
-    const trusted = r.item_category_conf === "llm" || r.item_category_conf === "learned";
+    const trusted =
+      r.item_category_conf === "human" || r.item_category_conf === "llm" || r.item_category_conf === "learned";
     const sMain =
       (trusted ? mainCategory(r.item_category) : null) ??
       mainCategory(lexicon.classify(r.item_title)?.category) ??
@@ -1545,8 +1546,12 @@ export interface SwipeCategorizationCard {
 }
 
 /** Nästa kort: konflikt-flaggade FÖRST, annars lägst konfidens (samma prioritering
- * som klassnings-köerna) - så verktyget alltid har något att visa. */
-export async function nextCategorizationCard(): Promise<SwipeCategorizationCard | null> {
+ * som klassnings-köerna) - så verktyget alltid har något att visa. `exclude` hoppar
+ * över ett specifikt objekt: ett nyss AVVISAT kort får conflict=true + conf=null och
+ * sorterar därmed först igen - utan uteslutning fastnar kön på samma kort i evighet. */
+export async function nextCategorizationCard(
+  exclude?: { house: string; externalId: string },
+): Promise<SwipeCategorizationCard | null> {
   const { rows } = await pool.query<{
     house: string; external_id: string; title: string; category: string | null;
     category_conf: string | null; raw: Record<string, unknown> | null;
@@ -1559,8 +1564,10 @@ export async function nextCategorizationCard(): Promise<SwipeCategorizationCard 
      FROM items i
      WHERE i.status='active' AND i.title IS NOT NULL
        AND (i.category_conf IS NULL OR i.category_conf <> 'human')
+       ${exclude ? "AND NOT (i.house=$1 AND i.external_id=$2)" : ""}
      ORDER BY i.category_conflict DESC, cat_conf_rank(i.category_conf) ASC, i.ends_at ASC NULLS LAST
      LIMIT 1`,
+    exclude ? [exclude.house, exclude.externalId] : [],
   );
   const r = rows[0];
   if (!r) return null;
@@ -1577,8 +1584,10 @@ export async function decideCategorization(
   const patch = categorizationDecisionPatch(decision);
   if (decision === "approve") {
     await pool.query(
+      // category IS NOT NULL: att godkänna ett kort UTAN kategori skulle låsa det på
+      // 'human' med category=null - permanent osynligt för både klassning och kön.
       `UPDATE items SET category_conf=$3, category_conflict=$4
-       WHERE house=$1 AND external_id=$2`,
+       WHERE house=$1 AND external_id=$2 AND category IS NOT NULL`,
       [house, externalId, patch.category_conf, patch.category_conflict],
     );
   } else {
@@ -1602,16 +1611,24 @@ export async function nextComparisonCard(): Promise<SwipeComparisonCard | null> 
     house: string; external_id: string; title: string; image: string | null;
     cmp_house: string; cmp_external_id: string; cmp_title: string; cmp_image: string | null; cmp_price: number | null;
   }>(
-    `SELECT i.house, i.external_id, i.title,
-            (SELECT m.url FROM media m WHERE m.house=i.house AND m.owner_type='item'
-               AND m.owner_external_id=i.external_id AND m.kind='image' ORDER BY m.sort NULLS LAST LIMIT 1) AS image,
+    // Samma grundvillkor som priceStats: bara SÅLDA rader med riktigt slutpris och
+    // similarity >= 0.45. Bilderna hämtas via JOIN LATERAL (inte SELECT-subquery) så
+    // att avsaknad av bild FILTRERAR BORT paret - AI-verifieringen tittar ändå bara på
+    // par där båda sidor har bild, så bildlösa par är inte granskningsbara.
+    `SELECT i.house, i.external_id, i.title, im.url AS image,
             ph.house AS cmp_house, ph.item_external_id AS cmp_external_id, ph.item_title AS cmp_title,
-            (SELECT m.url FROM media m WHERE m.house=ph.house AND m.owner_type='item'
-               AND m.owner_external_id=ph.item_external_id AND m.kind='image' ORDER BY m.sort NULLS LAST LIMIT 1) AS cmp_image,
+            cim.url AS cmp_image,
             COALESCE(ph.final_total, ph.final_bid) AS cmp_price
      FROM items i
      JOIN price_history ph ON ph.item_title % i.title  -- trigram-kandidat, samma bas som prisjämförelsen
+     JOIN LATERAL (SELECT m.url FROM media m WHERE m.house=i.house AND m.owner_type='item'
+                     AND m.owner_external_id=i.external_id AND m.kind='image'
+                   ORDER BY m.sort NULLS LAST LIMIT 1) im ON true
+     JOIN LATERAL (SELECT m.url FROM media m WHERE m.house=ph.house AND m.owner_type='item'
+                     AND m.owner_external_id=ph.item_external_id AND m.kind='image'
+                   ORDER BY m.sort NULLS LAST LIMIT 1) cim ON true
      WHERE i.status='active' AND i.est_count >= 1
+       AND ph.sold AND ph.final_bid > 0 AND similarity(ph.item_title, i.title) >= 0.45
        AND NOT EXISTS (SELECT 1 FROM match_verdicts v
                         WHERE v.house=i.house AND v.item_external_id=i.external_id
                           AND v.cmp_house=ph.house AND v.cmp_external_id=ph.item_external_id)

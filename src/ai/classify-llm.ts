@@ -286,6 +286,7 @@ export async function llmClassifyPass(limit = Number(process.env.AI_CLASSIFY_BAT
      FROM items i
      WHERE status='active' AND title IS NOT NULL
        AND (category_conf IS NULL OR category_conf NOT IN ('llm','learned'))
+       AND category_conf IS DISTINCT FROM 'human'  -- mänskligt facit granskas aldrig om av AI:n
        AND NOT (house || '/' || external_id = ANY($2::text[]))
        AND NOT EXISTS (SELECT 1 FROM media m WHERE m.house=i.house AND m.owner_type='item'
                          AND m.owner_external_id=i.external_id AND m.kind='image')
@@ -296,7 +297,8 @@ export async function llmClassifyPass(limit = Number(process.env.AI_CLASSIFY_BAT
   const remaining = async (): Promise<number> => {
     const r = await pool.query<{ n: string }>(
       `SELECT count(*) n FROM items WHERE status='active'
-         AND (category_conf IS NULL OR category_conf NOT IN ('llm','learned'))`,
+         AND (category_conf IS NULL OR category_conf NOT IN ('llm','learned'))
+         AND category_conf IS DISTINCT FROM 'human'`,
     );
     return Number(r.rows[0]?.n ?? 0);
   };
@@ -450,6 +452,7 @@ async function selectVisionCandidates(limit: number, includeLearned: boolean): P
      FROM items i
      WHERE i.status='active' AND i.title IS NOT NULL
        AND (i.category_conf IS NULL OR i.category_conf <> 'llm')
+       AND i.category_conf IS DISTINCT FROM 'human'  -- mänskligt facit granskas aldrig om av AI:n
        AND ($3 OR i.category_conf IS DISTINCT FROM 'learned')
        AND NOT (i.house || '/' || i.external_id = ANY($2::text[]))
      ORDER BY i.category_conflict DESC, cat_conf_rank(i.category_conf) ASC, i.ends_at ASC NULLS LAST
@@ -474,7 +477,8 @@ async function writeVerdict(
             attrs=CASE WHEN $5::jsonb IS NOT NULL
                        THEN COALESCE(items.attrs, '{}'::jsonb) || $5::jsonb
                        ELSE items.attrs END
-     WHERE house=$2 AND external_id=$3`,
+     WHERE house=$2 AND external_id=$3
+       AND cat_conf_rank(category_conf) < cat_conf_rank('llm')`,
     [v.key, r.house, r.external_id, v.n, v.attrs ? JSON.stringify(v.attrs) : null],
   );
   if (v.key !== "ovrigt/diverse" && v.key !== "ovrigt/partier") toLearn.push({ title: r.title, category: v.key });
@@ -544,7 +548,8 @@ export async function classifyVisionBatch(batch: VisionRow[]): Promise<{ sent: n
 async function remainingVision(): Promise<number> {
   const r = await pool.query<{ n: string }>(
     `SELECT count(*) n FROM items WHERE status='active'
-       AND (category_conf IS NULL OR category_conf <> 'llm')`,
+       AND (category_conf IS NULL OR category_conf <> 'llm')
+       AND category_conf IS DISTINCT FROM 'human'`,
   );
   return Number(r.rows[0]?.n ?? 0);
 }

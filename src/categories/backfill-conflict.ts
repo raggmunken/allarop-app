@@ -20,33 +20,47 @@ export interface ConflictBackfillResult {
   doneAll: boolean;
 }
 
-export async function conflictBackfillPass(batchSize = 200): Promise<ConflictBackfillResult> {
-  const state = await getJobState(JOB);
-  const { rows } = await pool.query<{
-    id: number; house: string; external_id: string; title: string;
-    description: string | null; category: string; raw: Record<string, unknown> | null;
-  }>(
-    `SELECT id, house, external_id, title, description, category, raw
-     FROM items
-     WHERE status='active' AND category_conf='text'
-     ORDER BY id
-     OFFSET $1 LIMIT $2`,
-    [state.cursor_offset, batchSize],
-  );
-
+/**
+ * Kör batch efter batch tills hela eftersläpningen är avbetad ELLER `maxTotal` rader
+ * hanterats i DENNA körning (ett enda 200-batch per 6-timmarsslot = ~800 rader/dygn,
+ * vilket aldrig hinner ikapp en backlogg på hundratusentals rader). Markören sparas
+ * efter VARJE inre batch → en krasch mitt i svepet tappar bara den pågående batchen.
+ */
+export async function conflictBackfillPass(batchSize = 200, maxTotal = 5000): Promise<ConflictBackfillResult> {
+  let scanned = 0;
   let flagged = 0;
-  for (const r of rows) {
-    const hc = houseCategoryKey(r.house, r.raw);
-    const byText = classifyByText(r.title, r.description);
-    if (byText == null) continue; // borde inte hända (conf='text' förutsätter en träff), skippa defensivt
-    if (detectConflict(byText, "text", hc.key)) {
-      await pool.query(`UPDATE items SET category_conflict=true WHERE id=$1`, [r.id]);
-      flagged++;
+  let doneAll = false;
+
+  while (scanned < maxTotal) {
+    const state = await getJobState(JOB);
+    const { rows } = await pool.query<{
+      id: number; house: string; external_id: string; title: string;
+      description: string | null; category: string; raw: Record<string, unknown> | null;
+    }>(
+      `SELECT id, house, external_id, title, description, category, raw
+       FROM items
+       WHERE status='active' AND category_conf='text'
+       ORDER BY id
+       OFFSET $1 LIMIT $2`,
+      [state.cursor_offset, batchSize],
+    );
+
+    for (const r of rows) {
+      const hc = houseCategoryKey(r.house, r.raw);
+      const byText = classifyByText(r.title, r.description);
+      if (byText == null) continue; // borde inte hända (conf='text' förutsätter en träff), skippa defensivt
+      if (detectConflict(byText, "text", hc.key)) {
+        await pool.query(`UPDATE items SET category_conflict=true WHERE id=$1`, [r.id]);
+        flagged++;
+      }
     }
+    scanned += rows.length;
+
+    doneAll = rows.length < batchSize;
+    const newOffset = doneAll ? 0 : state.cursor_offset + rows.length; // klart svep → börja om
+    await setJobState(JOB, newOffset, state.total, false); // 'done' hålls false - detta är en återkommande sweep, inte en engångsmigrering
+    if (doneAll) break; // hela backloggen avbetad - nästa körning startar om från 0
   }
 
-  const doneAll = rows.length < batchSize;
-  const newOffset = doneAll ? 0 : state.cursor_offset + rows.length; // klart svep → börja om
-  await setJobState(JOB, newOffset, state.total, false); // 'done' hålls false - detta är en återkommande sweep, inte en engångsmigrering
-  return { scanned: rows.length, flagged, doneAll };
+  return { scanned, flagged, doneAll };
 }
