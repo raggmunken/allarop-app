@@ -1578,11 +1578,12 @@ export async function nextCategorizationCard(
   const houses = exclude.map((e) => e.house);
   const ids = exclude.map((e) => e.externalId);
   const { rows } = await pool.query<{
-    house: string; external_id: string; title: string; category: string | null;
-    category_conf: string | null; raw: Record<string, unknown> | null;
+    house: string; external_id: string; title: string; description: string | null;
+    category: string | null; category_conf: string | null; raw: Record<string, unknown> | null;
     image: string | null;
   }>(
-    `SELECT i.house, i.external_id, i.title, i.category, i.category_conf, i.raw,
+    `SELECT i.house, i.external_id, i.title, left(i.description,400) AS description,
+            i.category, i.category_conf, i.raw,
             (SELECT m.url FROM media m WHERE m.house=i.house AND m.owner_type='item'
                AND m.owner_external_id=i.external_id AND m.kind='image'
              ORDER BY m.sort NULLS LAST LIMIT 1) AS image
@@ -1599,6 +1600,20 @@ export async function nextCategorizationCard(
   );
   const r = rows[0];
   if (!r) return null;
+  // Ett tomt "okänd"-kort är inget att granska - antingen gammal skräp-data (rejectad
+  // FÖRE reject-till-LLM-fixen, 2026-08-01) eller ett aldrig klassat objekt ur den stora
+  // bakgrundskön. Innan kortet visas: ge det EN riktig LLM-chans direkt, precis som ett
+  // avslag gör, så granskaren aldrig ser ett blankt kort utan något att ta ställning till.
+  if (!r.category_conf && process.env.OPENROUTER_API_KEY) {
+    await classifyVisionBatch([
+      { house: r.house, external_id: r.external_id, title: r.title, description: r.description, image: r.image },
+    ]).catch(() => null);
+    const fresh = await pool.query<{ category: string | null; category_conf: string | null }>(
+      `SELECT category, category_conf FROM items WHERE house=$1 AND external_id=$2`,
+      [r.house, r.external_id],
+    );
+    if (fresh.rows[0]) { r.category = fresh.rows[0].category; r.category_conf = fresh.rows[0].category_conf; }
+  }
   const hc = houseCategoryKey(r.house, r.raw);
   // Vissa hus (Auctionet) har bara en numerisk category_id, ingen läsbar etikett i
   // rådatan - hc.raw blir då en bar siffra ("13"), oanvändbar för en människa. Visa
@@ -1687,80 +1702,71 @@ export interface SwipeComparisonCard {
 /** Nästa jämförelsepar UTAN facit ännu (varken AI eller människa) - hämtar
  * ur den AI-driven prisjämförelsens senaste kandidatpar (est_at nyligen satt). */
 export async function nextComparisonCard(): Promise<SwipeComparisonCard | null> {
-  // NÖDBROMS (2026-08-01 incident, se not vid frågan nedan): även efter LATERAL-fixet kan
-  // frågan bli dyr när MÅNGA aktiva objekt saknar en matchande såld jämförelse (måste prövas
-  // en efter en tills en träff hittas). Egen anslutning med hård statement_timeout - en trög
-  // sökning ger ETT tomt swipe-kort (hellre inget än en hängande sida/pinnad db-CPU), stör
-  // aldrig resten av sajten. Kortlivad koppling avslutas (ej pool.release) - ingen risk att
-  // en kvarglömd session-timeout läcker till en annan konsument av den delade poolen.
-  const client = await pool.connect();
-  let rows: {
-    house: string; external_id: string; title: string; image: string | null; image_emb: Buffer | null;
-    cmp_house: string; cmp_external_id: string; cmp_title: string; cmp_image: string | null;
-    cmp_image_emb: Buffer | null; cmp_price: number | null;
-  }[];
-  try {
-    await client.query(`SET statement_timeout = '4000'`);
-    const res = await client.query<{
-      house: string; external_id: string; title: string; image: string | null; image_emb: Buffer | null;
-      cmp_house: string; cmp_external_id: string; cmp_title: string; cmp_image: string | null;
-      cmp_image_emb: Buffer | null; cmp_price: number | null;
-    }>(
-    // PERF (2026-08-01 incident): "JOIN price_history ph ON ph.item_title % i.title" är en
-    // korstabell-join på TVÅ kolumner - pg_trgm:s GIN-index kan INTE stödja det direkt (bara
-    // "kolumn % konstant"), så planeraren föll tillbaka på Seq Scan + Nested Loop över HELA
-    // price_history (miljontals rader) x items (tiotusentals) → kostnad i miljardklassen,
-    // pinnade db-CPU:n på ~96 % och svalt ut resten av sajten. Fix: LATERAL - i.title blir då
-    // en KORRELERAD parameter per items-rad (samma form som priceStats() redan använder
-    // framgångsrikt), så GIN-indexet används per items-rad istället för en blind korsjoin.
-    // Samma grundvillkor som priceStats: bara SÅLDA rader med riktigt slutpris och
-    // similarity >= 0.45, redan avgjorda par uteslutna. Bilderna hämtas via JOIN LATERAL
-    // (inte SELECT-subquery) så att avsaknad av bild FILTRERAR BORT paret - AI-verifieringen
-    // tittar ändå bara på par där båda sidor har bild. Embeddingen (om beräknad - bakgrunds-
-    // pass, kan ligga efter) hämtas med för bildlikhets-badgen, gatar INTE bort paret.
-    `SELECT i.house, i.external_id, i.title, im.url AS image, im.embedding AS image_emb,
-            ph.house AS cmp_house, ph.item_external_id AS cmp_external_id, ph.item_title AS cmp_title,
-            cim.url AS cmp_image, cim.embedding AS cmp_image_emb,
-            COALESCE(ph.final_total, ph.final_bid) AS cmp_price
+  // PERF (2026-08-01, andra rundan): den första LATERAL-fixen bytte visserligen bort
+  // Seq Scan-incidenten, men fortsatte prova aktiva objekt EN I TAGET i ends_at-ordning
+  // tills en träff hittades - för objekt utan träff (vanligt: ren %-trigram missar precis
+  // det ordöverlapp-vägen i priceStats() FÅNGAR, t.ex. omformulerade Tradera-titlar) blev
+  // det fortfarande många dyra försök i rad, ~50 % av anropen slog i 4s-taket och gav
+  // "inget att jämföra" trots gott om verkliga jämförbara.
+  //
+  // Återanvänder priceStats() rakt av istället för en svagare egen trigram-approximation
+  // - SAMMA logik som redan sätter est_count, så en kandidat med est_count>=1 är
+  // GARANTERAT konsekvent (inte bara "borde ha" en träff). Ett litet SLUMPMÄSSIGT urval
+  // (inte samma ends_at-ordning varje gång - annars försöker vi om och om igen på exakt
+  // samma "svåra" objekt) betar av kandidater tills en har en osvarad, bildförsedd
+  // jämförelse. Ingen egen statement_timeout behövs längre - priceStats() per kandidat
+  // är i sig en redan snabb, indexerad sökning (samma som /price-stats använder live).
+  const { rows: candidates } = await pool.query<{
+    house: string; external_id: string; title: string; category: string | null;
+    lot_count: number | null; attrs: ItemAttrs | null; image: string | null; emb: Buffer | null;
+  }>(
+    `SELECT house, external_id, title, category, lot_count, attrs,
+            (SELECT m.url FROM media m WHERE m.house=i.house AND m.owner_type='item'
+               AND m.owner_external_id=i.external_id AND m.kind='image'
+             ORDER BY m.sort NULLS LAST LIMIT 1) AS image,
+            (SELECT m.embedding FROM media m WHERE m.house=i.house AND m.owner_type='item'
+               AND m.owner_external_id=i.external_id AND m.kind='image' AND m.embedding IS NOT NULL
+             ORDER BY m.sort NULLS LAST LIMIT 1) AS emb
      FROM items i
-     JOIN LATERAL (
-       SELECT ph2.house, ph2.item_external_id, ph2.item_title, ph2.final_total, ph2.final_bid
-       FROM price_history ph2
-       WHERE ph2.item_title % i.title AND ph2.sold AND ph2.final_bid > 0
-         AND similarity(ph2.item_title, i.title) >= 0.45
-         AND NOT EXISTS (SELECT 1 FROM match_verdicts v
-                          WHERE v.house=i.house AND v.item_external_id=i.external_id
-                            AND v.cmp_house=ph2.house AND v.cmp_external_id=ph2.item_external_id)
-       ORDER BY similarity(ph2.item_title, i.title) DESC
-       LIMIT 1
-     ) ph ON true
-     JOIN LATERAL (SELECT m.url, m.embedding FROM media m WHERE m.house=i.house AND m.owner_type='item'
-                     AND m.owner_external_id=i.external_id AND m.kind='image'
-                   ORDER BY m.sort NULLS LAST LIMIT 1) im ON true
-     JOIN LATERAL (SELECT m.url, m.embedding FROM media m WHERE m.house=ph.house AND m.owner_type='item'
-                     AND m.owner_external_id=ph.item_external_id AND m.kind='image'
-                   ORDER BY m.sort NULLS LAST LIMIT 1) cim ON true
-     WHERE i.status='active' AND i.est_count >= 1
-     ORDER BY i.ends_at ASC NULLS LAST
-     LIMIT 1`,
-    );
-    rows = res.rows;
-  } catch (e) {
-    if ((e as { code?: string }).code === "57014") { rows = []; } // statement_timeout - inget kort denna gång
-    else throw e;
-  } finally {
-    client.release(true); // true = förstör anslutningen (bär SET statement_timeout) - läcker aldrig till poolen
+     WHERE status='active' AND title IS NOT NULL AND est_count >= 1
+     ORDER BY ends_at ASC NULLS LAST
+     LIMIT 50`,
+    // ORDER BY random() SÅGS UT att vara "rätt" här men kostade 4s (måste sortera HELA
+    // träffmängden, ~40k rader, på ett slumptal - ingen index kan hjälpa den sorteringen).
+    // ORDER BY ends_at ASC använder befintliga items_active_ends_idx (~130ms) - blanda om
+    // ordningen i JS istället, praktiskt taget gratis på 50 rader.
+  );
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j]!, candidates[i]!];
   }
-  const r = rows[0];
-  if (!r) return null;
-  const vecA = decodeVec(r.image_emb);
-  const vecB = decodeVec(r.cmp_image_emb);
-  const visualMatch = vecA && vecB ? Math.round(cosine(vecA, vecB) * 100) : null;
-  return {
-    house: r.house, externalId: r.external_id, title: r.title, image: r.image,
-    cmpHouse: r.cmp_house, cmpExternalId: r.cmp_external_id, cmpTitle: r.cmp_title,
-    cmpImage: r.cmp_image, cmpPrice: r.cmp_price, visualMatch,
-  };
+  for (const c of candidates.slice(0, 8)) {
+    if (!c.image) continue; // målet behöver en bild för swipe-kortet
+    const stats = await priceStats(c.title, {
+      exclHouse: c.house, exclId: c.external_id, category: c.category,
+      lotCount: c.lot_count, attrs: c.attrs, targetEmbedding: decodeVec(c.emb),
+    }).catch(() => null);
+    const withImage = stats?.samples.filter((s) => s.image != null) ?? [];
+    if (withImage.length === 0) continue;
+    const verdicts = await loadMatchVerdicts(c.house, c.external_id, withImage.map((s) => ({ house: s.house, id: s.id })));
+    const pick = withImage.find((s) => !verdicts.has(`${s.house}/${s.id}`));
+    if (!pick) continue;
+    const vecA = decodeVec(c.emb);
+    const cmpEmbRes = await pool.query<{ embedding: Buffer | null }>(
+      `SELECT m.embedding FROM media m WHERE m.house=$1 AND m.owner_type='item'
+         AND m.owner_external_id=$2 AND m.kind='image' AND m.embedding IS NOT NULL
+       ORDER BY m.sort NULLS LAST LIMIT 1`,
+      [pick.house, pick.id],
+    );
+    const vecB = decodeVec(cmpEmbRes.rows[0]?.embedding ?? null);
+    const visualMatch = vecA && vecB ? Math.round(cosine(vecA, vecB) * 100) : null;
+    return {
+      house: c.house, externalId: c.external_id, title: c.title, image: c.image,
+      cmpHouse: pick.house, cmpExternalId: pick.id, cmpTitle: pick.title,
+      cmpImage: pick.image, cmpPrice: pick.price, visualMatch,
+    };
+  }
+  return null;
 }
 
 export async function decideComparison(
