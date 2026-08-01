@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 520" role="img" aria-label="Priser och trender på nätauktioner">
+  <rect width="920" height="520" fill="#f4f3ef"/>
+  <g transform="translate(460,260)">
+    <rect x="-300" y="-140" width="600" height="360" rx="14" fill="#ffffff" stroke="#111110" stroke-width="4"/>
+    <polyline points="-260,120 -140,-10 0,70 140,-90 260,30" fill="none" stroke="#0e7d63" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="-260" cy="120" r="14" fill="#0e7d63"/>
+    <circle cx="-140" cy="-10" r="14" fill="#0e7d63"/>
+    <circle cx="0" cy="70" r="14" fill="#0e7d63"/>
+    <circle cx="140" cy="-90" r="14" fill="#0e7d63"/>
+    <circle cx="260" cy="30" r="14" fill="#0e7d63"/>
+  </g>
+</svg>

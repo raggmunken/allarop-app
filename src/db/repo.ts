@@ -924,11 +924,7 @@ export async function priceStats(
              WHERE m.house = ph.house AND m.owner_type = 'item'
                AND m.owner_external_id = ph.item_external_id AND m.kind = 'image'
              ORDER BY m.sort NULLS LAST LIMIT 1) image,
-            (SELECT m.embedding FROM media m
-             WHERE m.house = ph.house AND m.owner_type = 'item'
-               AND m.owner_external_id = ph.item_external_id AND m.kind = 'image'
-               AND m.embedding IS NOT NULL
-             ORDER BY m.sort NULLS LAST LIMIT 1) emb
+            NULL::bytea emb
      FROM price_history ph
      LEFT JOIN items i ON i.house = ph.house AND i.external_id = ph.item_external_id
      WHERE ph.sold AND ph.final_bid > 0

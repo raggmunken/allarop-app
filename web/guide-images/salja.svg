@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 520" role="img" aria-label="Sälja på nätauktion">
+  <rect width="920" height="520" fill="#f4f3ef"/>
+  <g transform="translate(460,260)">
+    <path d="M-120,-160 L160,-160 L240,-80 L0,160 L-160,0 Z" fill="none" stroke="#0e7d63" stroke-width="10"/>
+    <path d="M-120,-160 L160,-160 L240,-80 L0,160 L-160,0 Z" fill="#0e7d63" opacity="0.1"/>
+    <circle cx="-40" cy="-90" r="26" fill="#f4f3ef" stroke="#111110" stroke-width="8"/>
+    <line x1="20" y1="-20" x2="160" y2="-20" stroke="#111110" stroke-width="12" stroke-linecap="round"/>
+    <line x1="60" y1="30" x2="180" y2="30" stroke="#76746c" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>

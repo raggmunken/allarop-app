@@ -291,7 +291,6 @@ CREATE TABLE IF NOT EXISTS category_overrides (
 );
 
 -- Trigram-index på prishistorikens titlar → snabb "liknande sålda"-sökning (priceStats).
-CREATE INDEX IF NOT EXISTS ph_title_trgm ON price_history USING gin (item_title gin_trgm_ops);
 
 CREATE INDEX IF NOT EXISTS bids_item_idx ON bids (house, item_external_id);
 CREATE INDEX IF NOT EXISTS bids_bidder_idx ON bids (house, bidder_id);

@@ -1,0 +1,205 @@
+# Allarop — lätt bakgrundsstack på modu (ingen GPU).
+#
+# Kör som EGEN stack (INTE via klient-deploy-knappen). Bara:
+#   db (egen Postgres, kapad) → migrate (schema) → scheduler (throttlad poll) → api (:3000)
+# GPU-tjänsterna (alpr, autoheal) är MEDVETET utelämnade. Embedding/OCR gaturas av
+# alprAvailable() → no-op när sidecaren saknas (search faller tillbaka på lexikal).
+#
+# Routing: api publiceras på 127.0.0.1:3105. Gateway routar redan allarop.se → 3105
+# (klient-posten). Sätt klienten 'live' (maintenance_mode=0) i admin.
+#
+# Resurstak: ~2 GB totalt + låg CPU-prioritet så vibecode-stacken aldrig störs.
+name: allarop
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: allarop-db
+    # Minnestrimning: tabellerna (2,9M price_history, 6,6M media) + trigram-GIN-indexen
+    # (~243 MB på price_history) fick INTE plats i 128 MB shared_buffers → varje sök/
+    # prisstatistik läste indexet från den nätverksanslutna volymen (~2 s random-I/O per
+    # fråga). 512 MB shared_buffers cachar de heta indexen i RAM → ~20 ms. work_mem sätts
+    # per-db i setup (32 MB) så bitmaps inte blir "lossy" på vanliga ord ("stol").
+    # random_page_cost=1.5: volymen är SSD → gynna index-scans. effective_cache_size =
+    # planerar-hint om total cache. mem_limit höjd 384m→1280m (boxen har ~6 GB ledigt).
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "random_page_cost=1.5"
+      - "-c"
+      - "max_connections=50"
+    environment:
+      POSTGRES_USER: allarop
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?sätt POSTGRES_PASSWORD i .env.prod}
+      POSTGRES_DB: allarop
+    volumes:
+      - allarop-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U allarop"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    mem_limit: 1280m
+    cpus: 1.0
+    # Docker ger containern bara 64 MB /dev/shm som default. Postgres lägger sina
+    # parallella arbetares dynamiska delade minne där → VACUUM/parallella queries
+    # failar med "could not resize shared memory segment ... No space left on
+    # device". Höj till 256 MB (ligger UTANFÖR mem_limit, är tmpfs).
+    shm_size: 256m
+    # Ingen host-port → ingen 5432-krock med vibecode-postgres; nås bara internt.
+
+  migrate:
+    build: .
+    image: allarop:latest
+    command: ["db-init"]
+    environment:
+      DATABASE_URL: postgres://allarop:${POSTGRES_PASSWORD}@db:5432/allarop
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    mem_limit: 512m
+
+  scheduler:
+    build: .
+    image: allarop:latest
+    command: ["poll"]
+    # tini som PID 1 reapar Chromiums döda barn-processer (annars hopar sig
+    # zombier eftersom node som PID 1 inte skördar dem).
+    init: true
+    environment:
+      DATABASE_URL: postgres://allarop:${POSTGRES_PASSWORD}@db:5432/allarop
+      # ── Throttle (snålt, bakgrund) ──
+      FULL_REFRESH_MS: 1800000     # katalog-refresh var 30:e min
+      BASE_TICK_MS: 30000          # grundtick 30s (default 10s)
+      FLAT_SWEEP_PAGES: 20
+      MIRROR_IMAGES: 0             # 0 = spegla INTE bilder (disksnålt). Sätt 1 om UI saknar bilder.
+      TRADERA_ENABLED: 1           # Tradera-prisdata (sålt) + AKTIVA objekt till items (full crawl)
+      # ── Galleri-berikning: tillfälligt höjda tak för återställning efter media-wipe-fixen
+      #    (2026-07-29). Samtidighet är oförändrat låg → snällt mot källorna. Sänk gärna
+      #    tillbaka när DB:s gallerier återhämtat sig.
+      BUDI_ENRICH_PER_SWEEP: 100
+      PANTBANKEN_ENRICH_PER_SWEEP: 150
+      METROPOL_ENRICH_PER_SWEEP: 100
+      GAK_ENRICH_PER_SWEEP: 100
+      NETAUKTION_ENRICH_PER_SWEEP: 100
+      JUNORA_ENRICH_PER_SWEEP: 80
+      VAXXA_ENRICH_PER_SWEEP: 80
+      RETRADE_ENRICH_PER_SWEEP: 100
+      KRONOFOGDEN_ENRICH_PER_SWEEP: 60
+      PSAUCTION_ENRICH_PER_SWEEP: 20
+      # ── Embedding: ingen alpr → alprAvailable()=false → no-op. Långa intervall för säkerhets skull ──
+      EMBED_INTERVAL_MS: 86400000
+      AI_IMAGE_CLASSIFY_INTERVAL_MS: 86400000
+      AI_CLASSIFY_INTERVAL_MS: 1800000
+      AI_CLASSIFY_BATCH: 20
+      # ── Valfritt (degraderar snällt om tomt) ──
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_TEXT_MODEL: ${OPENROUTER_TEXT_MODEL:-}
+      OPENROUTER_VISION_MODEL: ${OPENROUTER_VISION_MODEL:-}
+      OPENROUTER_PAID_MODEL: ${OPENROUTER_PAID_MODEL:-}
+      AI_USAGE_MAX_USD: ${AI_USAGE_MAX_USD:-5}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@allarop.se}
+      # ALPR_URL lämnas till default (localhost:8099, oåtkomlig) → alprAvailable()=false.
+    volumes:
+      - allarop-images:/app/data/images
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    mem_limit: 1200m          # rymmer stealth-Chromium (Blinto m.fl.)
+    cpus: 2.0
+    cpu_shares: 256           # låg prioritet vs vibecode
+
+  api:
+    build: .
+    image: allarop:latest
+    command: ["api"]
+    init: true
+    environment:
+      DATABASE_URL: postgres://allarop:${POSTGRES_PASSWORD}@db:5432/allarop
+      PORT: 3000
+      NODE_ENV: production
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?sätt ADMIN_PASSWORD i .env.prod}
+      ADMIN_SECRET: ${ADMIN_SECRET:?sätt ADMIN_SECRET i .env.prod}
+      TRUST_PROXY: 1           # bakom gateway → läs riktig klient-IP ur X-Forwarded-For
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_VISION_MODEL: ${OPENROUTER_VISION_MODEL:-}
+      AI_USAGE_MAX_USD: ${AI_USAGE_MAX_USD:-5}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@allarop.se}
+    ports:
+      - "127.0.0.1:3105:3000"  # gateway routar allarop.se → 127.0.0.1:3105
+    volumes:
+      - allarop-images:/app/data/images
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    # Hang-detektering: watchdog.sh startar om containern om den blir "unhealthy"
+    # (running men /health svarar inte). node har inbyggd fetch → ingen curl krävs.
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    # api-processen (tsx/node: läs-API + SPA + i-minne-cacher som warmer värmer)
+    # växer till ~540 MB i drift. 512m gav cgroup-OOM var ~2:e minut → sajten
+    # flappade. 1 GB ger komfortabel marginal (boxen har ~5,6 GB ledigt).
+    mem_limit: 1024m
+    cpus: 1.5
+
+  # Håll-varm-loop: db:n ligger på den nätverksanslutna volymen, så efter en stunds
+  # inaktivitet (eller när schemaläggaren vräkt ut sidor) blir de heta trigram-indexen
+  # kalla → FÖRSTA sökningen/objektöppningen läser index från disk = 20+ s. Denna lilla
+  # loop rör de heta frågorna var 90:e sek (startsida + en sökning + en objektöppning +
+  # prisuppslag på det just nu snarast-slutande objektet) så cachen aldrig hinner kallna.
+  # Använder api via interna nätet (api:3000). Node har inbyggd fetch. Billig (~60 MB).
+  warmer:
+    image: allarop:latest
+    container_name: allarop-warmer
+    init: true
+    # Imagen har ENTRYPOINT ["npx","tsx","src/cli.ts"] → måste överskuggas, annars
+    # tolkas 'node' som ett cli-subkommando (skrev ut hjälptexten och kraschloopade).
+    entrypoint: ["node"]
+    command:
+      - "-e"
+      - |
+        const B = 'http://api:3000';
+        const hit = async (u) => { try { const r = await fetch(u); if (r.body) await r.arrayBuffer(); } catch (e) {} };
+        const get = async (u) => { try { const r = await fetch(u); return await r.json(); } catch (e) { return null; } };
+        async function warm() {
+          await hit(B + '/items?sort=ending&limit=48');
+          await hit(B + '/items?q=stol&limit=24');
+          const d = await get(B + '/items?sort=ending&limit=1');
+          const it = d && d.items && d.items[0];
+          if (it) {
+            await hit(B + '/items/' + it.house + '/' + it.external_id);
+            await hit(B + '/price-stats?house=' + encodeURIComponent(it.house) + '&id=' + encodeURIComponent(it.external_id));
+          }
+        }
+        (async () => { for (;;) { await warm(); await new Promise((r) => setTimeout(r, 90000)); } })();
+    depends_on:
+      - api
+    restart: unless-stopped
+    mem_limit: 128m
+    cpu_shares: 128           # låg prioritet
+
+volumes:
+  allarop-pgdata:
+  allarop-images:

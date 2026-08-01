@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 520" role="img" aria-label="Auktionskategorier">
+  <rect width="920" height="520" fill="#f4f3ef"/>
+  <g transform="translate(460,260)">
+    <rect x="-220" y="-80" width="150" height="150" rx="14" fill="#0e7d63"/>
+    <rect x="-30" y="-130" width="150" height="150" rx="14" fill="#111110"/>
+    <rect x="100" y="-50" width="150" height="150" rx="14" fill="#76746c"/>
+    <circle cx="-80" cy="-20" r="20" fill="#f4f3ef"/>
+    <circle cx="30" cy="-70" r="20" fill="#f4f3ef"/>
+    <circle cx="160" cy="10" r="20" fill="#f4f3ef"/>
+  </g>
+</svg>

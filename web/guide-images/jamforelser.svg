@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 520" role="img" aria-label="Jämförelser av auktionssajter">
+  <rect width="920" height="520" fill="#f4f3ef"/>
+  <g transform="translate(460,260)">
+    <line x1="0" y1="-160" x2="0" y2="120" stroke="#111110" stroke-width="14" stroke-linecap="round"/>
+    <line x1="-260" y1="-60" x2="260" y2="-60" stroke="#111110" stroke-width="10"/>
+    <path d="M-300,0 C-300,45 -250,45 -210,45 L-150,45 C-110,45 -110,0 -110,0 L-300,0 Z" fill="#0e7d63"/>
+    <path d="M110,0 C110,45 160,45 200,45 L260,45 C300,45 300,0 300,0 L110,0 Z" fill="#76746c"/>
+    <rect x="-30" y="120" width="60" height="120" rx="6" fill="#111110"/>
+  </g>
+</svg>

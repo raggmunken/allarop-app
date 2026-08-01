@@ -54,6 +54,7 @@ import {
   checkPassword, setAdminCookie, clearAdminCookie,
 } from "./auth.ts";
 import { rateLimit } from "./ratelimit.ts";
+import { handleSeoPage } from "./seo-pages.ts";
 import { INDEXNOW_KEY } from "../scheduler/indexnow.ts";
 
 const WEB_DIR = join(dirname(fileURLToPath(import.meta.url)), "../../web");
@@ -63,6 +64,8 @@ const SECURITY_HEADERS: Record<string, string> = {
   "x-content-type-options": "nosniff",
   "x-frame-options": "SAMEORIGIN",
   "referrer-policy": "strict-origin-when-cross-origin",
+  "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+  "permissions-policy": "camera=(), microphone=(), geolocation=(), interest-cohort=()",
   // CSP i REPORT-ONLY-läge (audit E6, steg 1): loggar brott utan att blockera
   // något — kan aldrig bryta SPA:n. SPA:n fetchar samma origin och laddar inga
   // externa scripts; typsnitt via Google Fonts, bilder/media från källhusen (https:).
@@ -81,7 +84,7 @@ async function serveHtmlFile(res: ServerResponse, file: string, extraHeaders?: R
     // annars ser man en gammal version tills man hård-laddar (Ctrl+Shift+R).
     res.writeHead(200, {
       "content-type": "text/html; charset=utf-8",
-      "cache-control": "no-store, must-revalidate",
+      "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       ...SECURITY_HEADERS,
       ...extraHeaders,
     });
@@ -115,6 +118,7 @@ function send(res: ServerResponse, status: number, body: unknown): void {
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "access-control-allow-origin": "*",
+    "cache-control": "no-store",
   });
   res.end(json);
 }
@@ -368,6 +372,57 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     } catch {
       res.writeHead(404); res.end();
     }
+    return;
+  }
+  // --- SSR SEO-sidor + SEO/PWA-statik/robots/sitemap/manifest (allarop-seo) ---
+  if ((req.method === "GET" || req.method === "HEAD") && await handleSeoPage(url.pathname, res)) return;
+  {
+    const staticPng: Record<string, string> = {
+      "/og-image.png": "og-image.png",
+      "/apple-touch-icon.png": "apple-touch-icon.png",
+      "/icon-512.png": "icon-512.png",
+    };
+    const pngFile = staticPng[url.pathname];
+    if (pngFile) {
+      try {
+        const buf = await readFile(join(WEB_DIR, pngFile));
+        res.writeHead(200, { "content-type": "image/png", "cache-control": "public, max-age=604800" });
+        res.end(buf);
+      } catch { res.writeHead(404); res.end(); }
+      return;
+    }
+  }
+  // Guide-hero-bilder (SVG) från web/guide-images/ som /guide-images/*.
+  {
+    const imgMatch = url.pathname.match(/^\/guide-images\/(.+)$/);
+    if (imgMatch && imgMatch[1]) {
+      const imgFile = imgMatch[1].replace(/\\/g, "/");
+      if (imgFile.includes("..")) { res.writeHead(404); res.end(); return; }
+      try {
+        const buf = await readFile(join(WEB_DIR, "guide-images", imgFile));
+        const ext = imgFile.split(".").pop()?.toLowerCase();
+        const ct = ext === "svg" ? "image/svg+xml" : ext === "png" ? "image/png" : ext === "jpg" || ext === "jpeg" ? "image/jpeg" : "application/octet-stream";
+        res.writeHead(200, { "content-type": ct, "cache-control": "public, max-age=604800" });
+        res.end(buf);
+      } catch { res.writeHead(404); res.end(); }
+      return;
+    }
+  }
+  // robots.txt, llms.txt och sitemap.xml/-pages.xml/-items-N.xml hanteras nu av
+  // handleSeoPage() ovan (seo-pages.ts) - sitemapen är en index + paginerade
+  // objektsidor istället för en enda platt fil, se digitalbyra-specen 2026-07-29.
+  if (url.pathname === "/site.webmanifest") {
+    res.writeHead(200, { "content-type": "application/manifest+json; charset=utf-8", "cache-control": "public, max-age=86400" });
+    res.end(JSON.stringify({
+      name: "Allarop", short_name: "Allarop",
+      description: "Sök alla Sveriges nätauktioner på ett ställe.",
+      start_url: "/", display: "standalone",
+      background_color: "#f5f4f1", theme_color: "#141613",
+      icons: [
+        { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+        { src: "/favicon.png", sizes: "192x192", type: "image/png" },
+      ],
+    }));
     return;
   }
   if (url.pathname === "/health") return send(res, 200, { ok: true });

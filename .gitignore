@@ -32,3 +32,4 @@ recon-output/
 *.sql.gz
 *.dump
 .worktrees/
+.env.prod

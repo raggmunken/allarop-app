@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 520" role="img" aria-label="Så fungerar auktionshus">
+  <rect width="920" height="520" fill="#f4f3ef"/>
+  <g transform="translate(460,260)">
+    <rect x="-180" y="-60" width="360" height="220" rx="12" fill="#111110"/>
+    <path d="M-210,-60 L0,-180 L210,-60 Z" fill="#0e7d63"/>
+    <rect x="-130" y="0" width="70" height="90" fill="#f4f3ef"/>
+    <rect x="-35" y="0" width="70" height="90" fill="#f4f3ef"/>
+    <rect x="60" y="0" width="70" height="90" fill="#f4f3ef"/>
+    <rect x="-45" y="120" width="90" height="40" rx="4" fill="#f4f3ef"/>
+    <g transform="rotate(-35 200 160)">
+      <rect x="160" y="150" width="120" height="18" rx="4" fill="#0e7d63"/>
+      <rect x="150" y="120" width="28" height="70" rx="5" fill="#76746c"/>
+      <rect x="280" y="120" width="28" height="70" rx="5" fill="#76746c"/>
+    </g>
+  </g>
+</svg>
