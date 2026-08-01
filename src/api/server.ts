@@ -39,7 +39,9 @@ import { TAXONOMY } from "../categories/taxonomy.ts";
 import { optimizeRoute, RouteReqIn } from "../route/optimize.ts";
 import { getMaxSpeed, setSetting } from "../db/settings.ts";
 import { geocodeSuggest } from "../geo/geocode.ts";
-import { priceLookup } from "../db/repo.ts";
+import {
+  decideCategorization, decideComparison, nextCategorizationCard, nextComparisonCard, priceLookup,
+} from "../db/repo.ts";
 import {
   addWatch, createSearch, deleteSearch, listNotifications, listSearches,
   listWatchItems, markAllRead, markRead, removeWatch, watchedKeys,
@@ -307,7 +309,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   // (showAdminGate). Ingen publik länk pekar hit och de ska inte indexeras/synas i sök -
   // noindex via HTTP-header (funkar oavsett JS-rendering, till skillnad från en meta-tagg
   // som skulle krävt path-specifik HTML). Fortsatt nåbara om man skriver URL:en direkt.
-  if (url.pathname === "/rutt" || url.pathname === "/priser" || url.pathname === "/admin") {
+  if (url.pathname === "/rutt" || url.pathname === "/priser" || url.pathname === "/admin" || url.pathname === "/swipe") {
     return serveApp(res, { "x-robots-tag": "noindex, nofollow" });
   }
   // Juridisk sida (publik): Om, Villkor, Integritetspolicy, Kontakt/takedown är EN sida
@@ -874,6 +876,34 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const limit = Math.min(Number(url.searchParams.get("limit") ?? 40), 200);
     const r = await priceLookup(q, { limit, months, house });
     return send(res, 200, { query: q, months, house: house ?? null, ...r });
+  }
+
+  // Swipe-granskning (admin): kategorisering + prisjämförelse-matchning via svep-kort.
+  if (url.pathname === "/swipe/next" && req.method === "GET") {
+    if (!requireAdmin(req, res)) return;
+    const mode = url.searchParams.get("mode");
+    if (mode === "comparison") return send(res, 200, await nextComparisonCard());
+    if (mode === "categorization") return send(res, 200, await nextCategorizationCard());
+    return send(res, 400, { error: "mode måste vara 'categorization' eller 'comparison'" });
+  }
+  if (url.pathname === "/swipe/decide" && req.method === "POST") {
+    if (!requireAdmin(req, res)) return;
+    let body: Record<string, unknown> = {};
+    try { body = JSON.parse(await readBody(req)); } catch { /* tom */ }
+    const decision = body.decision === "approve" || body.decision === "reject" ? body.decision : null;
+    if (!decision) return send(res, 400, { error: "decision måste vara 'approve' eller 'reject'" });
+    if (body.mode === "categorization") {
+      await decideCategorization(String(body.house), String(body.external_id), decision);
+      return send(res, 200, { ok: true });
+    }
+    if (body.mode === "comparison") {
+      await decideComparison(
+        String(body.house), String(body.external_id),
+        String(body.cmp_house), String(body.cmp_external_id), decision,
+      );
+      return send(res, 200, { ok: true });
+    }
+    return send(res, 400, { error: "mode måste vara 'categorization' eller 'comparison'" });
   }
 
   // Adressförslag medan man skriver (ruttplaneraren) - ORS autocomplete, Nominatim-fallback.
