@@ -1568,9 +1568,15 @@ export async function nextCategorizationCard(
   const r = rows[0];
   if (!r) return null;
   const hc = houseCategoryKey(r.house, r.raw);
+  // Vissa hus (Auctionet) har bara en numerisk category_id, ingen läsbar etikett i
+  // rådatan - hc.raw blir då en bar siffra ("13"), oanvändbar för en människa. Visa
+  // hellre vår egen mappade taxonominyckel (läsbar), med rå-värdet inom parentes för
+  // spårbarhet när de skiljer sig åt. Hus utan mappning (key=null) faller tillbaka på raw.
+  const houseCategoryLabel =
+    hc.key && hc.key !== hc.raw ? `${hc.key}${hc.raw ? ` (${hc.raw})` : ""}` : hc.key ?? hc.raw;
   return {
     house: r.house, external_id: r.external_id, title: r.title, image: r.image,
-    category: r.category, category_conf: r.category_conf, houseCategoryLabel: hc.raw,
+    category: r.category, category_conf: r.category_conf, houseCategoryLabel,
   };
 }
 
