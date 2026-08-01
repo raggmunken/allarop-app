@@ -966,6 +966,21 @@ export async function priceStats(
     return rate != null ? Math.round(Number(r.final_bid) * rate) : null;
   };
   const candidates = res.rows.map((r) => ({ ...r, priceSek: inSek(r) }));
+  // Mänskliga underkännanden (swipe-granskning, match_verdicts.source='human', same=false)
+  // utesluts PERMANENT ur jämförelseunderlaget - både den interaktiva /price-stats-vyn och
+  // det periodiska fynd-passet (estimatePass) går via priceStats, så en swipe-vänster på ett
+  // jämförelsepar slår igenom överallt, inte bara i admin-granskningsvyn. AI-underkännanden
+  // (source='ai') gatar INTE här (de var redan bara en visnings-omräkning i /price-stats,
+  // ändras inte av denna omskrivning - se aiStats i server.ts).
+  let rejected = new Set<string>();
+  if (opts.exclHouse && opts.exclId) {
+    const rv = await pool.query<{ cmp_house: string; cmp_external_id: string }>(
+      `SELECT cmp_house, cmp_external_id FROM match_verdicts
+       WHERE house=$1 AND item_external_id=$2 AND same=false AND source='human'`,
+      [opts.exclHouse, opts.exclId],
+    );
+    rejected = new Set(rv.rows.map((r) => `${r.cmp_house}/${r.cmp_external_id}`));
+  }
   // VISUELL GATE: kandidatens bild måste vara visuellt lik målets (DINOv2-cosinus över
   // tröskel). MISSING-SAFE (rätt riktning av "hellre inget än fel"): gata ENDAST när
   // BÅDA sidor har embedding - saknas endera, BEHÅLL kandidaten (annars skulle den långa
@@ -999,6 +1014,7 @@ export async function priceStats(
       (r): r is typeof r & { priceSek: number } =>
         r.priceSek != null &&
         r.priceSek > 0 &&
+        !rejected.has(`${r.house}/${r.item_external_id}`) &&
         overlapOk(r) &&
         isComparable(
           title,
