@@ -31,3 +31,4 @@ recon-output/
 # Databasdump/backuper om de skulle hamna i repo-roten
 *.sql.gz
 *.dump
+.worktrees/
