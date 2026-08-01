@@ -9,7 +9,8 @@ import {
 } from "../connectors/types.ts";
 import { computeTotal, FeeModel } from "../fees/engine.ts";
 import { feeModelForItem } from "../fees/rules.ts";
-import { classify, classifyByText } from "../categories/classify.ts";
+import { classify, classifyByText, Confidence } from "../categories/classify.ts";
+import { detectConflict } from "../categories/conflict.ts";
 import { houseCategoryKey } from "../categories/houseCategory.ts";
 import { lexicon } from "../categories/learned.ts";
 import { sekRates } from "../fx/rates.ts";
@@ -90,6 +91,7 @@ export async function upsertItem(
   const cat = hit
     ? { category: hit.category, confidence: "learned" }
     : classify(it.title, it.description, hc.key, hc.raw);
+  const conflict = detectConflict(cat.category, cat.confidence as Confidence, hc.key);
   const res = await pool.query<{ inserted: boolean }>(
     `INSERT INTO items (house, external_id, part_external_id, auction_external_id, title,
                         description, location, status, ends_at, min_bid, current_bid,
@@ -98,9 +100,9 @@ export async function upsertItem(
                         collect_starts, collect_ends, collect_address,
                         freight_help, forklift_help, youtube_link, raw, currency, seller,
                         listed_at, reserve_status, reserve_price, leader_id, leader_name,
-                        category, category_conf)
+                        category, category_conf, category_conflict)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,
-             $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37)
+             $18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38)
      ON CONFLICT (house, external_id) DO UPDATE
        SET part_external_id=$3, auction_external_id=$4, title=$5,
            -- Beskrivning + slagavgift berikas gradvis ur objektsidan (Blinto/Klaravik
@@ -144,6 +146,8 @@ export async function upsertItem(
                          THEN items.category ELSE $36 END,
            category_conf=CASE WHEN cat_conf_rank(items.category_conf) > cat_conf_rank($37)
                               THEN items.category_conf ELSE $37 END,
+           category_conflict=CASE WHEN cat_conf_rank(items.category_conf) > cat_conf_rank($37)
+                                   THEN items.category_conflict ELSE $38 END,
            last_seen=now()
      -- xmax=0-tricket: vid ON CONFLICT-update sätts radens xmax (låsmarkör),
      -- vid ren INSERT är den 0 → inserted=true bara när objektet är HELT nytt.
@@ -158,7 +162,7 @@ export async function upsertItem(
       it.raw ? JSON.stringify(it.raw) : null, it.currency ?? "SEK", it.seller ?? null,
       it.listedAt ?? null, it.reserveStatus ?? null, it.reservePrice ?? null,
       it.leaderId ?? null, it.leaderName ?? null,
-      cat.category, cat.confidence,
+      cat.category, cat.confidence, conflict,
     ],
   );
   // Riktig INSERT (inte en ON CONFLICT-update) → objektet är NYTT → buffra för
