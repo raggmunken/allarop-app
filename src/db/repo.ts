@@ -1071,21 +1071,35 @@ export async function loadMatchVerdicts(
   return out;
 }
 
-/** Spara ett AI-verdikt (idempotent - senaste vinner). */
+/** Spara ett verdikt (idempotent - senaste vinner, MEN ett 'human'-facit
+ * skrivs aldrig över av ett senare 'ai'-facit). */
 export async function saveMatchVerdict(
   house: string,
   itemId: string,
   cmpHouse: string,
   cmpId: string,
   verdict: { same: boolean; reason: string; model: string },
+  source: "ai" | "human" = "ai",
 ): Promise<void> {
   await pool.query(
-    `INSERT INTO match_verdicts (house, item_external_id, cmp_house, cmp_external_id, same, reason, model)
-     VALUES ($1,$2,$3,$4,$5,$6,$7)
+    `INSERT INTO match_verdicts (house, item_external_id, cmp_house, cmp_external_id, same, reason, model, source)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
      ON CONFLICT (house, item_external_id, cmp_house, cmp_external_id)
-       DO UPDATE SET same=EXCLUDED.same, reason=EXCLUDED.reason, model=EXCLUDED.model, created_at=now()`,
-    [house, itemId, cmpHouse, cmpId, verdict.same, verdict.reason, verdict.model],
+       DO UPDATE SET same=EXCLUDED.same, reason=EXCLUDED.reason, model=EXCLUDED.model,
+                      source=EXCLUDED.source, created_at=now()
+       WHERE match_verdicts.source <> 'human' OR EXCLUDED.source = 'human'`,
+    [house, itemId, cmpHouse, cmpId, verdict.same, verdict.reason, verdict.model, source],
   );
+}
+
+/** Finns redan ett facit (AI eller mänskligt) för paret? Används för att
+ * hoppa AI-verifiering när ett facit redan finns. */
+export async function hasMatchVerdict(house: string, itemId: string, cmpHouse: string, cmpId: string): Promise<boolean> {
+  const r = await pool.query(
+    `SELECT 1 FROM match_verdicts WHERE house=$1 AND item_external_id=$2 AND cmp_house=$3 AND cmp_external_id=$4`,
+    [house, itemId, cmpHouse, cmpId],
+  );
+  return (r.rowCount ?? 0) > 0;
 }
 
 /** Kategori-facetter: antal AKTIVA objekt per taxonomi-nyckel (för filter-räknare). */
@@ -1574,4 +1588,51 @@ export async function decideCategorization(
       [house, externalId, patch.category, patch.category_conf, patch.category_conflict],
     );
   }
+}
+
+export interface SwipeComparisonCard {
+  house: string; externalId: string; title: string; image: string | null;
+  cmpHouse: string; cmpExternalId: string; cmpTitle: string; cmpImage: string | null; cmpPrice: number | null;
+}
+
+/** Nästa jämförelsepar UTAN facit ännu (varken AI eller människa) - hämtar
+ * ur den AI-driven prisjämförelsens senaste kandidatpar (est_at nyligen satt). */
+export async function nextComparisonCard(): Promise<SwipeComparisonCard | null> {
+  const { rows } = await pool.query<{
+    house: string; external_id: string; title: string; image: string | null;
+    cmp_house: string; cmp_external_id: string; cmp_title: string; cmp_image: string | null; cmp_price: number | null;
+  }>(
+    `SELECT i.house, i.external_id, i.title,
+            (SELECT m.url FROM media m WHERE m.house=i.house AND m.owner_type='item'
+               AND m.owner_external_id=i.external_id AND m.kind='image' ORDER BY m.sort NULLS LAST LIMIT 1) AS image,
+            ph.house AS cmp_house, ph.item_external_id AS cmp_external_id, ph.item_title AS cmp_title,
+            (SELECT m.url FROM media m WHERE m.house=ph.house AND m.owner_type='item'
+               AND m.owner_external_id=ph.item_external_id AND m.kind='image' ORDER BY m.sort NULLS LAST LIMIT 1) AS cmp_image,
+            COALESCE(ph.final_total, ph.final_bid) AS cmp_price
+     FROM items i
+     JOIN price_history ph ON ph.item_title % i.title  -- trigram-kandidat, samma bas som prisjämförelsen
+     WHERE i.status='active' AND i.est_count >= 1
+       AND NOT EXISTS (SELECT 1 FROM match_verdicts v
+                        WHERE v.house=i.house AND v.item_external_id=i.external_id
+                          AND v.cmp_house=ph.house AND v.cmp_external_id=ph.item_external_id)
+     ORDER BY i.ends_at ASC NULLS LAST
+     LIMIT 1`,
+  );
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    house: r.house, externalId: r.external_id, title: r.title, image: r.image,
+    cmpHouse: r.cmp_house, cmpExternalId: r.cmp_external_id, cmpTitle: r.cmp_title,
+    cmpImage: r.cmp_image, cmpPrice: r.cmp_price,
+  };
+}
+
+export async function decideComparison(
+  house: string, externalId: string, cmpHouse: string, cmpExternalId: string, decision: "approve" | "reject",
+): Promise<void> {
+  await saveMatchVerdict(
+    house, externalId, cmpHouse, cmpExternalId,
+    { same: decision === "approve", reason: "manuell granskning", model: "human" },
+    "human",
+  );
 }

@@ -14,6 +14,7 @@ import { pool } from "../db/pool.ts";
 import {
   categoryFacets,
   getHiddenHouses,
+  hasMatchVerdict,
   invalidateHidden,
   listActive,
   listHouses,
@@ -478,6 +479,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       for (;;) {
         const s = fresh[idx++];
         if (!s) return;
+        if (await hasMatchVerdict(house, id, s.house, s.id)) continue; // redan avgjort (AI eller människa) - fråga inte igen
         const v = await verifySameObject(
           { title: row.title, image: row.image ?? "", desc: row.description },
           { title: s.title, image: s.image!, desc: s.desc },
