@@ -155,7 +155,9 @@ ALTER TABLE items ADD COLUMN IF NOT EXISTS freight_help    TEXT;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS forklift_help   TEXT;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS youtube_link    TEXT;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS category_conflict BOOLEAN NOT NULL DEFAULT false;
-CREATE INDEX IF NOT EXISTS items_category_conflict_idx ON items (category_conflict) WHERE category_conflict;
+-- (index på category_conflict: se items_swipe_categorization_idx nedan, EFTER
+-- cat_conf_rank()-definitionen som den refererar - måste finnas i den ordningen,
+-- schema.sql körs som EN sekventiell sats-ström.)
 ALTER TABLE parts ADD COLUMN IF NOT EXISTS raw             JSONB;
 ALTER TABLE items ADD COLUMN IF NOT EXISTS raw             JSONB;
 ALTER TABLE bids  ADD COLUMN IF NOT EXISTS raw             JSONB;
@@ -338,6 +340,18 @@ IMMUTABLE LANGUAGE sql AS $$
     WHEN 'human' THEN 6 WHEN 'llm' THEN 5 WHEN 'learned' THEN 4 WHEN 'house' THEN 3
     WHEN 'text' THEN 2 WHEN 'mixed' THEN 1 ELSE 0 END
 $$;
+
+-- PERF-incident 2026-08-01: tre köer (nextCategorizationCard, llmClassifyPass,
+-- selectVisionCandidates) delar EXAKT samma sorteringsform - ORDER BY category_conflict
+-- DESC, cat_conf_rank(category_conf) ASC, ends_at ASC NULLS LAST - men inget index matchade
+-- den. Alla tre gjorde en Seq Scan + full sort över HELA items (500k+ rader) PER ANROP:
+-- swipe-kategorisering tog 5-6,5s/kort. Detta index (byggt CONCURRENTLY i produktion för att
+-- aldrig blockera den ständigt uppdaterade tabellen) sänkte det till enstaka millisekunder.
+-- Ersätter det tidigare oanvända items_category_conflict_idx (bara kolumnen, ingen frågade
+-- på den ensam - borttaget).
+CREATE INDEX IF NOT EXISTS items_swipe_categorization_idx ON items
+  (category_conflict DESC, cat_conf_rank(category_conf) ASC, ends_at ASC NULLS LAST)
+  WHERE status='active' AND title IS NOT NULL;
 
 -- Smart sök: LLM-expanderade sökfrågor (synonymer + relaterade föremål + kategorier),
 -- cachas PERMANENT - en unik sökfråga expanderas EN gång någonsin (~$0,0001), sen gratis.
