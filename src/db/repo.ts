@@ -1627,29 +1627,35 @@ export async function decideCategorization(
 export interface SwipeComparisonCard {
   house: string; externalId: string; title: string; image: string | null;
   cmpHouse: string; cmpExternalId: string; cmpTitle: string; cmpImage: string | null; cmpPrice: number | null;
+  /** Cosine-likhet mellan huvudbildernas DINOv3-embedding, 0-100 (samma konvention som
+   * /similar-visual). Null om endera bildens embedding inte beräknats än (bakgrundspass). */
+  visualMatch: number | null;
 }
 
 /** Nästa jämförelsepar UTAN facit ännu (varken AI eller människa) - hämtar
  * ur den AI-driven prisjämförelsens senaste kandidatpar (est_at nyligen satt). */
 export async function nextComparisonCard(): Promise<SwipeComparisonCard | null> {
   const { rows } = await pool.query<{
-    house: string; external_id: string; title: string; image: string | null;
-    cmp_house: string; cmp_external_id: string; cmp_title: string; cmp_image: string | null; cmp_price: number | null;
+    house: string; external_id: string; title: string; image: string | null; image_emb: Buffer | null;
+    cmp_house: string; cmp_external_id: string; cmp_title: string; cmp_image: string | null;
+    cmp_image_emb: Buffer | null; cmp_price: number | null;
   }>(
     // Samma grundvillkor som priceStats: bara SÅLDA rader med riktigt slutpris och
     // similarity >= 0.45. Bilderna hämtas via JOIN LATERAL (inte SELECT-subquery) så
     // att avsaknad av bild FILTRERAR BORT paret - AI-verifieringen tittar ändå bara på
-    // par där båda sidor har bild, så bildlösa par är inte granskningsbara.
-    `SELECT i.house, i.external_id, i.title, im.url AS image,
+    // par där båda sidor har bild, så bildlösa par är inte granskningsbara. Embeddingen
+    // (om beräknad - bakgrundspass, kan ligga efter) hämtas med för bildlikhets-badgen,
+    // men gatar INTE bort paret - null → badgen döljs bara, kön ordnas inte om.
+    `SELECT i.house, i.external_id, i.title, im.url AS image, im.embedding AS image_emb,
             ph.house AS cmp_house, ph.item_external_id AS cmp_external_id, ph.item_title AS cmp_title,
-            cim.url AS cmp_image,
+            cim.url AS cmp_image, cim.embedding AS cmp_image_emb,
             COALESCE(ph.final_total, ph.final_bid) AS cmp_price
      FROM items i
      JOIN price_history ph ON ph.item_title % i.title  -- trigram-kandidat, samma bas som prisjämförelsen
-     JOIN LATERAL (SELECT m.url FROM media m WHERE m.house=i.house AND m.owner_type='item'
+     JOIN LATERAL (SELECT m.url, m.embedding FROM media m WHERE m.house=i.house AND m.owner_type='item'
                      AND m.owner_external_id=i.external_id AND m.kind='image'
                    ORDER BY m.sort NULLS LAST LIMIT 1) im ON true
-     JOIN LATERAL (SELECT m.url FROM media m WHERE m.house=ph.house AND m.owner_type='item'
+     JOIN LATERAL (SELECT m.url, m.embedding FROM media m WHERE m.house=ph.house AND m.owner_type='item'
                      AND m.owner_external_id=ph.item_external_id AND m.kind='image'
                    ORDER BY m.sort NULLS LAST LIMIT 1) cim ON true
      WHERE i.status='active' AND i.est_count >= 1
@@ -1662,10 +1668,13 @@ export async function nextComparisonCard(): Promise<SwipeComparisonCard | null> 
   );
   const r = rows[0];
   if (!r) return null;
+  const vecA = decodeVec(r.image_emb);
+  const vecB = decodeVec(r.cmp_image_emb);
+  const visualMatch = vecA && vecB ? Math.round(cosine(vecA, vecB) * 100) : null;
   return {
     house: r.house, externalId: r.external_id, title: r.title, image: r.image,
     cmpHouse: r.cmp_house, cmpExternalId: r.cmp_external_id, cmpTitle: r.cmp_title,
-    cmpImage: r.cmp_image, cmpPrice: r.cmp_price,
+    cmpImage: r.cmp_image, cmpPrice: r.cmp_price, visualMatch,
   };
 }
 

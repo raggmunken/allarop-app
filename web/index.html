@@ -493,6 +493,7 @@
   .swipe-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}
   .swipe-pair img{width:100%;max-height:160px;object-fit:contain;border-radius:var(--r-sm);background:var(--bg-2);margin-bottom:8px}
   .swipe-pair p{font-size:13px;color:var(--ink-2)}
+  .swipe-visual-match{font-weight:600;color:var(--accent);margin-top:10px}
   .swipe-actions{display:flex;gap:16px;justify-content:center;margin-top:18px}
   .swipe-actions button{width:64px;height:64px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);font-size:26px;cursor:pointer;box-shadow:var(--sh-sm);transition:all .15s}
   .swipe-actions button:hover{transform:translateY(-2px);box-shadow:var(--sh)}
@@ -2078,7 +2079,9 @@ async function loadSwipeCard(skip){
       el.innerHTML=`<div class="swipe-pair">
           <div>${card.image?`<img loading="lazy" src="${esc(card.image)}" alt="">`:""}<p>${esc(card.title)}</p></div>
           <div>${card.cmpImage?`<img loading="lazy" src="${esc(card.cmpImage)}" alt="">`:""}<p>${esc(card.cmpTitle)} - ${card.cmpPrice?money(card.cmpPrice,"SEK"):"?"}</p></div>
-        </div><p>Är detta samma typ av föremål?</p>`;
+        </div>
+        ${card.visualMatch!=null?`<p class="swipe-visual-match">Bildlikhet: ${card.visualMatch}%</p>`:""}
+        <p>Är detta samma typ av föremål?</p>`;
     }
   }catch{el.innerHTML=`<p>Kunde inte ladda kort just nu.</p>`;}
 }
