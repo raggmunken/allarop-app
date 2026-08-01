@@ -358,7 +358,7 @@ export function renderPieChart(
   data.forEach((d, i) => {
     const sliceAngle = (d.value / total) * 2 * Math.PI;
     const endAngle = startAngle + sliceAngle;
-    const color = PALETTE[i % PALETTE.length];
+    const color = PALETTE[i % PALETTE.length]!;
 
     // Donut segment
     const largeArc = sliceAngle > Math.PI ? 1 : 0;
