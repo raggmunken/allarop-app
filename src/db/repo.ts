@@ -1543,7 +1543,8 @@ export async function nextCategorizationCard(): Promise<SwipeCategorizationCard 
                AND m.owner_external_id=i.external_id AND m.kind='image'
              ORDER BY m.sort NULLS LAST LIMIT 1) AS image
      FROM items i
-     WHERE i.status='active' AND i.title IS NOT NULL AND i.category_conf <> 'human'
+     WHERE i.status='active' AND i.title IS NOT NULL
+       AND (i.category_conf IS NULL OR i.category_conf <> 'human')
      ORDER BY i.category_conflict DESC, cat_conf_rank(i.category_conf) ASC, i.ends_at ASC NULLS LAST
      LIMIT 1`,
   );
@@ -1562,9 +1563,9 @@ export async function decideCategorization(
   const patch = categorizationDecisionPatch(decision);
   if (decision === "approve") {
     await pool.query(
-      `UPDATE items SET category_conf='human', category_conflict=false
+      `UPDATE items SET category_conf=$3, category_conflict=$4
        WHERE house=$1 AND external_id=$2`,
-      [house, externalId],
+      [house, externalId, patch.category_conf, patch.category_conflict],
     );
   } else {
     await pool.query(
