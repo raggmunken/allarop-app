@@ -2057,14 +2057,14 @@ async function loadSwipeCard(){
     el.dataset.externalId=card.external_id??card.externalId; // categorization: snake_case, comparison: camelCase (se API)
     if(swipeMode==="categorization"){
       el.dataset.cmpHouse="";el.dataset.cmpExternalId="";
-      el.innerHTML=`${card.image?`<img loading="lazy" src="${card.image}" alt="">`:""}<h3>${esc(card.title)}</h3>
+      el.innerHTML=`${card.image?`<img loading="lazy" src="${esc(card.image)}" alt="">`:""}<h3>${esc(card.title)}</h3>
         <p>Nuvarande: ${esc(card.category||"okänd")} (${esc(card.category_conf||"—")})</p>
         <p>Husets kategori: ${esc(card.houseCategoryLabel||"—")}</p>`;
     }else{
       el.dataset.cmpHouse=card.cmpHouse;el.dataset.cmpExternalId=card.cmpExternalId;
       el.innerHTML=`<div class="swipe-pair">
-          <div>${card.image?`<img loading="lazy" src="${card.image}" alt="">`:""}<p>${esc(card.title)}</p></div>
-          <div>${card.cmpImage?`<img loading="lazy" src="${card.cmpImage}" alt="">`:""}<p>${esc(card.cmpTitle)} - ${card.cmpPrice?money(card.cmpPrice,"SEK"):"?"}</p></div>
+          <div>${card.image?`<img loading="lazy" src="${esc(card.image)}" alt="">`:""}<p>${esc(card.title)}</p></div>
+          <div>${card.cmpImage?`<img loading="lazy" src="${esc(card.cmpImage)}" alt="">`:""}<p>${esc(card.cmpTitle)} - ${card.cmpPrice?money(card.cmpPrice,"SEK"):"?"}</p></div>
         </div><p>Är detta samma typ av föremål?</p>`;
     }
   }catch{el.innerHTML=`<p>Kunde inte ladda kort just nu.</p>`;}
