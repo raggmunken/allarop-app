@@ -21,6 +21,7 @@ import {
 } from "../db/repo.ts";
 import { feeModelFor } from "../fees/rules.ts";
 import { llmClassifyImagePass, llmClassifyPass } from "../ai/classify-llm.ts";
+import { conflictBackfillPass } from "../categories/backfill-conflict.ts";
 import { readPlatePass, vehicleEnrichPass } from "../vehicle/enrich.ts";
 import { ocrEnrichPass } from "../ai/ocr-enrich.ts";
 import { embedPass } from "../ai/embed-enrich.ts";
@@ -62,6 +63,7 @@ const FLAT_ENDED_PAGES_PER_CYCLE = Number(process.env.FLAT_ENDED_PAGES_PER_CYCLE
 const HOT_PAGES = Number(process.env.HOT_PAGES ?? 1);
 /** LLM-klassning av nyckelords-missar (kräver OPENROUTER_API_KEY): en batch per intervall. */
 const AI_CLASSIFY_INTERVAL_MS = Number(process.env.AI_CLASSIFY_INTERVAL_MS ?? 300_000);
+const CONFLICT_BACKFILL_INTERVAL_MS = Number(process.env.CONFLICT_BACKFILL_INTERVAL_MS ?? 21_600_000); // 6h - säkerhetsnät, nya objekt flaggas redan vid ingest
 /** Bild-klassning av objekt där texten inte räckte (vision-modell, färre/dyrare anrop). */
 const AI_IMAGE_CLASSIFY_INTERVAL_MS = Number(process.env.AI_IMAGE_CLASSIFY_INTERVAL_MS ?? 600_000);
 const VEHICLE_ENRICH_INTERVAL_MS = Number(process.env.VEHICLE_ENRICH_INTERVAL_MS ?? 120_000);
@@ -344,6 +346,8 @@ export async function runScheduler(
   let llmRunning = false;
   let lastImageClassify = 0;
   let imageClassifyRunning = false;
+  let lastConflictBackfill = 0;
+  let conflictBackfillRunning = false;
   let lastVehicleEnrich = 0;
   let vehicleRunning = false;
   let lastPlateRead = 0;
@@ -465,6 +469,21 @@ export async function runScheduler(
           .catch((e) => log(`bild-klassning fel: ${(e as Error).message}`))
           .finally(() => {
             imageClassifyRunning = false;
+          });
+      }
+
+      // Backfill: flagga text/hus-konflikter i REDAN lagrade objekt (inte bara nya) -
+      // ingen AI-kostnad, ren regex-jämförelse. Säkerhetsnät, körs glest.
+      if (!conflictBackfillRunning && now - lastConflictBackfill >= CONFLICT_BACKFILL_INTERVAL_MS) {
+        lastConflictBackfill = now;
+        conflictBackfillRunning = true;
+        void conflictBackfillPass()
+          .then((r) => {
+            if (r.flagged > 0) log(`kategori-konflikt-backfill: ${r.flagged}/${r.scanned} flaggade${r.doneAll ? " (svep klart)" : ""}`);
+          })
+          .catch((e) => log(`kategori-konflikt-backfill fel: ${(e as Error).message}`))
+          .finally(() => {
+            conflictBackfillRunning = false;
           });
       }
 
