@@ -3,7 +3,7 @@
  * SJÄLVLÄRANDE lexikon som accelererar: varje LLM-beslut lär lexikonet titel-tokens →
  * kategori, och objekt lexikonet är säkert på klassas DIREKT (conf 'learned') utan
  * API-anrop. Passet arbetar sig igenom alla aktiva objekt som ännu inte är llm/learned
- * (sämst konfidens först: none → mixed → house → text), batchat ~40/anrop; nyckelords-
+ * (sämst konfidens först: none → mixed → text → house), batchat ~40/anrop; nyckelords-
  * klassningen fungerar bara som PRELIMINÄR etikett tills LLM/lexikonet hunnit ikapp.
  *
  * Modellen väljer en nyckel ur VÅR taxonomi och svaret valideras hårt (okända nycklar

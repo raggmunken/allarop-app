@@ -181,9 +181,12 @@ export function classifyByText(title: string, description?: string | null): stri
 export type Confidence = "mixed" | "text" | "house" | "none";
 
 /**
- * Full klassning med konfidens: text först (hög); annars hus-kategorin om mappad & ej catch-all
- * (medel); annars "Diverse & Ej klassat" (låg). Blandlådor får konfidens "mixed".
- * Precision-först: specifika kategorier får bara text-säkra objekt; osäkra hamnar i Övrigt.
+ * Full klassning med konfidens: blandlåda (text) alltid först - ett äkta blandat
+ * innehåll är sant oavsett vad huset arkiverat det under. Därefter husets EGNA
+ * kategori om den finns och inte är en catch-all (hög - beslut 2026-08-01, ur
+ * verklig swipe-granskning: husets kategori visade sig genomgående mer träffsäker
+ * än våra generiska nyckelordsregler för specifika/ovanliga föremål). Annars
+ * nyckelordsregler (medel). Annars "Diverse & Ej klassat" (låg).
  */
 export function classify(
   title: string,
@@ -193,9 +196,9 @@ export function classify(
 ): { category: string; confidence: Confidence } {
   const byText = classifyByText(title, description);
   if (byText === PARTIER) return { category: PARTIER, confidence: "mixed" };
-  if (byText) return { category: byText, confidence: "text" };
   if (houseCatKey && !(houseCatRaw && CATCHALL.test(houseCatRaw))) {
     return { category: houseCatKey, confidence: "house" };
   }
+  if (byText) return { category: byText, confidence: "text" };
   return { category: OVRIGT, confidence: "none" };
 }

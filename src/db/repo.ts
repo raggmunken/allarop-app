@@ -139,7 +139,7 @@ export async function upsertItem(
            leader_id=COALESCE($34, items.leader_id),
            leader_name=COALESCE($35, items.leader_name),
            -- Kategori räknas om vid varje upsert, MEN svagare konfidens får ALDRIG
-           -- nedgradera starkare (cat_conf_rank: llm > learned > text > house > mixed >
+           -- nedgradera starkare (cat_conf_rank: llm > learned > house > text > mixed >
            -- none). Skyddar både LLM-beslut och fallet där payload-beskrivningen är null
            -- i svep efter berikningen (loadEnriched-skip) → 'none' skrev annars över.
            category=CASE WHEN cat_conf_rank(items.category_conf) > cat_conf_rank($37)

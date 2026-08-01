@@ -329,13 +329,14 @@ CREATE TABLE IF NOT EXISTS learned_tokens (
 );
 
 -- Konfidens-rang för kategori-klassningar: högre rang skriver aldrig över med lägre.
--- human (6, facit) > llm (5) > learned (4, LLM-lärt lexikon) > text (3, nyckelord) > house (2) >
--- mixed (1) > none (0).
+-- human (6, facit) > llm (5) > learned (4, LLM-lärt lexikon) > house (3, husets egen
+-- kategori - beslut 2026-08-01: mer träffsäker än våra nyckelordsregler i praktiken) >
+-- text (2, nyckelord) > mixed (1) > none (0).
 CREATE OR REPLACE FUNCTION cat_conf_rank(conf TEXT) RETURNS int
 IMMUTABLE LANGUAGE sql AS $$
   SELECT CASE conf
-    WHEN 'human' THEN 6 WHEN 'llm' THEN 5 WHEN 'learned' THEN 4 WHEN 'text' THEN 3
-    WHEN 'house' THEN 2 WHEN 'mixed' THEN 1 ELSE 0 END
+    WHEN 'human' THEN 6 WHEN 'llm' THEN 5 WHEN 'learned' THEN 4 WHEN 'house' THEN 3
+    WHEN 'text' THEN 2 WHEN 'mixed' THEN 1 ELSE 0 END
 $$;
 
 -- Smart sök: LLM-expanderade sökfrågor (synonymer + relaterade föremål + kategorier),
