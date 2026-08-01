@@ -16,6 +16,7 @@ import { lexicon } from "../categories/learned.ts";
 import { sekRates } from "../fx/rates.ts";
 import { isComparable, ItemAttrs } from "./similar.ts";
 import { cosine, decodeVec } from "../ai/embed.ts";
+import { classifyVisionBatch } from "../ai/classify-llm.ts";
 import type { QueryExpansion } from "../ai/search-expand.ts";
 import { pool } from "./pool.ts";
 import { addEnded, addInserted } from "../scheduler/indexnow.ts";
@@ -1648,6 +1649,30 @@ export async function decideCategorization(
        WHERE house=$1 AND external_id=$2`,
       [house, externalId, patch.category, patch.category_conf, patch.category_conflict],
     );
+    // Ett avslag betyder "jag håller INTE med" - vänta inte på nästa schemalagda
+    // klassnings-svep, som kan ta lexikon-genvägen eller (efter husets-prioritet,
+    // 2026-08-01) återge EXAKT husets kategori igen, dvs. tyst återställa precis det
+    // beslut människan just underkände. Fråga LLM:en direkt om just detta objekt -
+    // synkront (admin väntar redan på ett svar vid ett swipe-beslut) så nästa kort i
+    // kön genast reflekterar ett äkta LLM-omdöme, inte husets/textens gamla gissning.
+    // Tyst no-op utan nyckel (matchar classify-llm.ts:s övriga AI-pass) eller om
+    // objektet försvunnit under tiden.
+    if (process.env.OPENROUTER_API_KEY) {
+      const r = await pool.query<{ title: string; description: string | null; image: string | null }>(
+        `SELECT title, left(description,400) AS description,
+                (SELECT m.url FROM media m WHERE m.house=$1 AND m.owner_type='item'
+                   AND m.owner_external_id=$2 AND m.kind='image'
+                 ORDER BY m.sort NULLS LAST LIMIT 1) AS image
+         FROM items WHERE house=$1 AND external_id=$2`,
+        [house, externalId],
+      );
+      const it = r.rows[0];
+      if (it?.title) {
+        await classifyVisionBatch([
+          { house, external_id: externalId, title: it.title, description: it.description, image: it.image },
+        ]).catch(() => null);
+      }
+    }
   }
 }
 
