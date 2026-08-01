@@ -954,14 +954,18 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (!requireAdmin(req, res)) return;
     let body: Record<string, unknown> = {};
     try { body = JSON.parse(await readBody(req)); } catch { /* tom */ }
-    const decision = body.decision === "approve" || body.decision === "reject" ? body.decision : null;
-    if (!decision) return send(res, 400, { error: "decision måste vara 'approve' eller 'reject'" });
+    // use_house: ENDAST categorization ("husets kategori har rätt, min gissning inte" -
+    // saknar motsvarighet i comparison, se kollen längre ned).
+    const decision = body.decision === "approve" || body.decision === "reject" || body.decision === "use_house"
+      ? body.decision : null;
+    if (!decision) return send(res, 400, { error: "decision måste vara 'approve', 'reject' eller 'use_house'" });
     if (!body.house || !body.external_id) return send(res, 400, { error: "house + external_id krävs" });
     if (body.mode === "categorization") {
       await decideCategorization(String(body.house), String(body.external_id), decision);
       return send(res, 200, { ok: true });
     }
     if (body.mode === "comparison") {
+      if (decision === "use_house") return send(res, 400, { error: "use_house gäller bara categorization" });
       if (!body.cmp_house || !body.cmp_external_id) return send(res, 400, { error: "cmp_house + cmp_external_id krävs" });
       await decideComparison(
         String(body.house), String(body.external_id),

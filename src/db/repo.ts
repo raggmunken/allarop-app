@@ -1539,6 +1539,10 @@ export interface SwipeCategorizationCard {
   category: string | null;
   category_conf: string | null;
   houseCategoryLabel: string | null;
+  /** Husets kategori mappad till VÅR taxonomi (null = ingen mappning för huset) -
+   * det är detta värdet, inte houseCategoryLabel (som kan vara en oanvändbar rå-etikett),
+   * som "use_house"-beslutet skriver till items.category. */
+  houseCategoryKey: string | null;
 }
 
 /** Nästa kort: konflikt-flaggade FÖRST, annars lägst konfidens (samma prioritering
@@ -1577,12 +1581,31 @@ export async function nextCategorizationCard(
   return {
     house: r.house, external_id: r.external_id, title: r.title, image: r.image,
     category: r.category, category_conf: r.category_conf, houseCategoryLabel,
+    houseCategoryKey: hc.key,
   };
 }
 
 export async function decideCategorization(
-  house: string, externalId: string, decision: "approve" | "reject",
+  house: string, externalId: string, decision: "approve" | "reject" | "use_house",
 ): Promise<void> {
+  if (decision === "use_house") {
+    // Husets kategori har rätt men VÅR gissning inte (motsatsen till "approve") -
+    // slå upp husets mappade kategori på nytt server-sidan (aldrig ur klientens
+    // ord - houseCategoryKey() härleds ur den lagrade rådatan, inte betrodd input)
+    // och skriv den som facit. Ingen mappning (key=null) → no-op, inget att sätta.
+    const r = await pool.query<{ raw: Record<string, unknown> | null }>(
+      `SELECT raw FROM items WHERE house=$1 AND external_id=$2`,
+      [house, externalId],
+    );
+    const hc = houseCategoryKey(house, r.rows[0]?.raw ?? null);
+    if (!hc.key) return;
+    await pool.query(
+      `UPDATE items SET category=$3, category_conf='human', category_conflict=false
+       WHERE house=$1 AND external_id=$2`,
+      [house, externalId, hc.key],
+    );
+    return;
+  }
   const patch = categorizationDecisionPatch(decision);
   if (decision === "approve") {
     await pool.query(
