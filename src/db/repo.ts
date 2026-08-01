@@ -1502,3 +1502,75 @@ export async function setJobState(
     [job, cursorOffset, total, done],
   );
 }
+
+/* ---- /swipe: mänsklig granskning ---- */
+
+/**
+ * Beslutslogik för categorization-läget. 'approve': nuvarande kategori
+ * behålls (category=null → SQL:en rör inte kolumnen), conf blir 'human'
+ * (rank-guarden gör den permanent). 'reject': kategori/conf nollas helt
+ * och konflikt-flaggan sätts → objektet hamnar överst i BÅDA
+ * klassnings-köerna igen (samma prioritering som Task 4).
+ */
+export function categorizationDecisionPatch(
+  decision: "approve" | "reject",
+): { category: string | null; category_conf: "human" | null; category_conflict: boolean } {
+  return decision === "approve"
+    ? { category: null, category_conf: "human", category_conflict: false }
+    : { category: null, category_conf: null, category_conflict: true };
+}
+
+export interface SwipeCategorizationCard {
+  house: string;
+  external_id: string;
+  title: string;
+  image: string | null;
+  category: string | null;
+  category_conf: string | null;
+  houseCategoryLabel: string | null;
+}
+
+/** Nästa kort: konflikt-flaggade FÖRST, annars lägst konfidens (samma prioritering
+ * som klassnings-köerna) - så verktyget alltid har något att visa. */
+export async function nextCategorizationCard(): Promise<SwipeCategorizationCard | null> {
+  const { rows } = await pool.query<{
+    house: string; external_id: string; title: string; category: string | null;
+    category_conf: string | null; raw: Record<string, unknown> | null;
+    image: string | null;
+  }>(
+    `SELECT i.house, i.external_id, i.title, i.category, i.category_conf, i.raw,
+            (SELECT m.url FROM media m WHERE m.house=i.house AND m.owner_type='item'
+               AND m.owner_external_id=i.external_id AND m.kind='image'
+             ORDER BY m.sort NULLS LAST LIMIT 1) AS image
+     FROM items i
+     WHERE i.status='active' AND i.title IS NOT NULL AND i.category_conf <> 'human'
+     ORDER BY i.category_conflict DESC, cat_conf_rank(i.category_conf) ASC, i.ends_at ASC NULLS LAST
+     LIMIT 1`,
+  );
+  const r = rows[0];
+  if (!r) return null;
+  const hc = houseCategoryKey(r.house, r.raw);
+  return {
+    house: r.house, external_id: r.external_id, title: r.title, image: r.image,
+    category: r.category, category_conf: r.category_conf, houseCategoryLabel: hc.raw,
+  };
+}
+
+export async function decideCategorization(
+  house: string, externalId: string, decision: "approve" | "reject",
+): Promise<void> {
+  const patch = categorizationDecisionPatch(decision);
+  if (decision === "approve") {
+    await pool.query(
+      `UPDATE items SET category_conf='human', category_conflict=false
+       WHERE house=$1 AND external_id=$2`,
+      [house, externalId],
+    );
+  } else {
+    await pool.query(
+      `UPDATE items SET category=$3, category_conf=$4, category_conflict=$5
+       WHERE house=$1 AND external_id=$2`,
+      [house, externalId, patch.category, patch.category_conf, patch.category_conflict],
+    );
+  }
+}
