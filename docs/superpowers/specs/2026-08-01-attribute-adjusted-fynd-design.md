@@ -104,11 +104,26 @@ befintliga `est_value_sek/est_count/est_p25/est_p75/est_at`.
 Regel-först, LLM-fallback (samma mönster som kategorisystemets
 text-regler-fore-LLM):
 
-- **Fordon**: `mileageKm` via regex på vanliga svenska mil-/km-format i
-  titel/beskrivning ("18 000 mil" = 180 000 km - **mil ≠ km, måste
-  konverteras korrekt**), LLM som fallback för otydlig fras. `fuelType`/
-  `drivetrain`/`firstRegYear` hämtas **auktoritativt** via befintlig
-  biluppgifter.se-uppslagning på regnr - inte gissat ur text.
+- **Fordon**: `mileageKm` källas i PRIORITETSORDNING:
+  1. **Biluppgifter.se, befintlig integration** (`src/vehicle/biluppgifter.ts` +
+     `enrich.ts`) - `odometerMil` (mätarställning vid senaste besiktning,
+     ×10 → km) med `inspectedAt` som ålder-på-uppgiften. Regnr finns redan
+     för de flesta aktiva fordonsannonser (text-regex ELLER skyltavläsning ur
+     bild när regnr saknas i text - `readPlatePass`, redan byggt). Detta är
+     den auktoritativa källan - inte text.
+  2. **Textextraktion** (regex på "18 000 mil" = 180 000 km - **mil ≠ km,
+     måste konverteras korrekt** - LLM som fallback för otydlig fras) - bara
+     när regnr inte kunnat slås upp alls (varken text eller skylt).
+  3. Saknas båda → `mileageKm` okänd, se "Aldrig anta genomsnitt" nedan.
+
+  **Fusk-kontroll**: en mätarställning kan bara öka. Om textextraherad
+  mileage < biluppgifters `odometerMil` från ett TIDIGARE besiktningsdatum
+  är påståendet bevisligen falskt (inte en avrundningsfråga) → avvisa
+  textvärdet, använd biluppgifter-värdet, och flagga annonsen (se
+  "Adversariell robusthet" nedan).
+
+  `fuelType`/`drivetrain`/`firstRegYear` hämtas likaså **auktoritativt** via
+  samma biluppgifter.se-uppslagning - inte gissat ur text.
 - **Elektronik/mobil**: `storageGb`/`batteryPct`/`origBox` via regex på
   vanliga format ("128GB", "89 % batterihälsa", "orginalkartong"/
   "originalförpackning"), LLM-fallback. `conditionGrade` klassas av LLM
@@ -149,6 +164,11 @@ I `price/estimate.ts`, för objekt i en av de tre kategorigrupperna:
   t.ex. miltal saknas på just detta objekt: fall tillbaka till median (inte
   modellens genomsnittsprediktion) - annars återskapar vi exakt samma
   falska-säkerhet-problem som idag.
+- **Ett kategorikritiskt attribut som saknas HELT (varken text- eller
+  biluppgifter-källa för fordon; inget skick angivet för elektronik/möbler)
+  släcker fynd-badgen, det faller inte bara tillbaka tyst.** Se
+  "Adversariell robusthet" - att INTE ange ett attribut kan vara ett val,
+  inte bara en lucka.
 
 `FYND_PCT`-beräkningen i `repo.ts` behöver ingen strukturell ändring - den
 konsumerar `est_value_sek` oavsett `est_basis`, men UI:t visar basis så
@@ -165,6 +185,26 @@ transparensen finns kvar (samma princip som avgiftsmotorns `basis`-fält).
 - Fynd-badgens tooltip uppdateras för att nämna justeringen när `est_basis
   ='model'`.
 
+## Adversariell robusthet (red/blue team)
+
+Motorn litar på säljarens egen text för flera attribut - genomgång av hur
+den kan missbrukas och vad som skyddar mot det:
+
+| Angrepp | Beskrivning | Skydd |
+|---|---|---|
+| **Utelämnande som knep** | Säljare med hög miltal/dåligt skick utelämnar attributet medvetet för att undvika prisavdraget. | Kategorikritiskt attribut saknas helt → fynd-badgen **släcks** (inte bara fallback till median). För fordon är detta ovanligt i praktiken eftersom mileage i första hand hämtas auktoritativt (se ovan), oberoende av vad texten säger. |
+| **Falskt påstått attribut** | Text hävdar bättre skick/lägre miltal/högre batterihälsa än verkligt, vilket höjer den visade uppskattningen och därmed uppfattat värde/bud-tryck. | Fordon: **fusk-kontrollen** ovan (mätarställning kan bara öka - textvärde lägre än ett tidigare besiktningsdatum = bevisat falskt, avvisas). Elektronik/möbler: ingen extern källa finns - kan inte verifieras, men se "utanför scope" nedan. |
+| **Extrapolering utanför träningsdata** | Målets attributvärde ligger utanför det intervall modellen tränats på (t.ex. orimligt lågt miltal) → log-linjär modell kan ge en absurt hög prediktion. | Klipp prediktionen till observerat min/max i träningsdatan per feature. Utanför intervallet → fall tillbaka till median, flagga lägre träffsäkerhet. |
+| **Grupp-spoofing** | Titel formulerad för att likna en dyrare modell/utrustningsnivå än objektet faktiskt är. | Redan delvis täckt av `attrsCompatible()`s kategoriska gate (märke/modell/typ); ingen ny mekanism behövs, men verifieras explicit i testerna att gaten körs FÖRE modell-vägen, inte bara median-vägen. |
+| **Träningsdata-förgiftning** | Felaktiga/bedrägliga sålda priser i `price_history` (t.ex. Traderas bulkdata) skevar en grupps koefficienter. | Befintliga `FYND_MAX_SPREAD`- och `sample_n`-krav ger delvis skydd (för stor spridning → inget fynd flaggas alls). Ingen ny mekanism i v1 - noteras som känd begränsning. |
+
+**Explicit utanför scope**: att verifiera sanningshalten i säljarens
+beskrivning för attribut utan extern källa (elektronikens batterihälsa/
+originalkartong, möblers skick) - Allarop är en aggregator utan tillgång
+till objektet. Motorn ska vara **konservativ** när den inte kan verifiera
+(hellre släckt badge än falskt förtroende), inte försöka detektera lögner
+den saknar data för att upptäcka.
+
 ## Testning
 
 Vitest, en fil per ny modul (följer befintligt mönster: en fil per
@@ -177,6 +217,9 @@ connector/modul):
   originalkartong) - fokus på mil/km-fällan.
 - `estimate.test.ts`-utökning: modell-väg vs. median-fallback-väg, och att
   saknat målattribut ALDRIG leder till modell-prediktion.
+- `biluppgifter.test.ts`-utökning: mätarställning-fusk-kontrollen (textvärde
+  lägre än ett tidigare besiktningsdatum → avvisas, biluppgifter-värdet
+  används); prediktions-klippning utanför träningsdatans min/max.
 
 ## Relaterat, ej i scope (separata spår)
 
