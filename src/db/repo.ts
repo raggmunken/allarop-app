@@ -1563,11 +1563,19 @@ export interface SwipeCategorizationCard {
 
 /** Nästa kort: konflikt-flaggade FÖRST, annars lägst konfidens (samma prioritering
  * som klassnings-köerna) - så verktyget alltid har något att visa. `exclude` hoppar
- * över ett specifikt objekt: ett nyss AVVISAT kort får conflict=true + conf=null och
- * sorterar därmed först igen - utan uteslutning fastnar kön på samma kort i evighet. */
+ * över nyligen BESVARADE objekt: ett nyss avvisat kort får conflict=true + conf=null
+ * och sorterar därmed först igen. En enda uteslutning räckte inte - vid två snabba
+ * avslag i rad (A avvisas → B visas → B avvisas → A är inte längre uteslutet →
+ * A visas igen) fastnar granskaren i en oändlig pingpong mellan just de två korten,
+ * även om ett bakgrundspass hunnit klassificera om dem under tiden (2026-08-01,
+ * observerat live: "Chinese Kangxi..." + "GUNNAR HANSSON..." - båda redan omklassade
+ * i databasen, men swipe visade dem växelvis pga den enda-platsen-uteslutningen).
+ * Klienten skickar därför en KORT LISTA av senast besvarade nycklar, inte bara en. */
 export async function nextCategorizationCard(
-  exclude?: { house: string; externalId: string },
+  exclude: { house: string; externalId: string }[] = [],
 ): Promise<SwipeCategorizationCard | null> {
+  const houses = exclude.map((e) => e.house);
+  const ids = exclude.map((e) => e.externalId);
   const { rows } = await pool.query<{
     house: string; external_id: string; title: string; category: string | null;
     category_conf: string | null; raw: Record<string, unknown> | null;
@@ -1580,10 +1588,13 @@ export async function nextCategorizationCard(
      FROM items i
      WHERE i.status='active' AND i.title IS NOT NULL
        AND (i.category_conf IS NULL OR i.category_conf <> 'human')
-       ${exclude ? "AND NOT (i.house=$1 AND i.external_id=$2)" : ""}
+       AND NOT EXISTS (
+         SELECT 1 FROM unnest($1::text[], $2::text[]) AS ex(house, external_id)
+         WHERE ex.house = i.house AND ex.external_id = i.external_id
+       )
      ORDER BY i.category_conflict DESC, cat_conf_rank(i.category_conf) ASC, i.ends_at ASC NULLS LAST
      LIMIT 1`,
-    exclude ? [exclude.house, exclude.externalId] : [],
+    [houses, ids],
   );
   const r = rows[0];
   if (!r) return null;

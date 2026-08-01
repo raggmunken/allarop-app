@@ -939,13 +939,17 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     const mode = url.searchParams.get("mode");
     if (mode === "comparison") return send(res, 200, await nextComparisonCard());
     if (mode === "categorization") {
-      // skip=<house>/<external_id>: hoppa över kortet som just besvarades (ett avvisat
-      // kort sorterar först igen). Delas på FÖRSTA '/' - external_id kan innehålla '/'.
-      const skip = url.searchParams.get("skip") ?? "";
-      const slash = skip.indexOf("/");
-      const exclude = slash > 0
-        ? { house: skip.slice(0, slash), externalId: skip.slice(slash + 1) }
-        : undefined;
+      // skip=<house>/<id>,<house>/<id>,...: hoppa över de SENAST besvarade korten (inte
+      // bara ett - en enda uteslutning ger en oändlig pingpong mellan två kort vid
+      // upprepade avslag, se kommentaren på nextCategorizationCard). Varje par delas på
+      // FÖRSTA '/' (external_id kan innehålla '/'); tomma/felformade par hoppas över.
+      const exclude = (url.searchParams.get("skip") ?? "")
+        .split(",")
+        .map((pair) => {
+          const slash = pair.indexOf("/");
+          return slash > 0 ? { house: pair.slice(0, slash), externalId: pair.slice(slash + 1) } : null;
+        })
+        .filter((e): e is { house: string; externalId: string } => e != null);
       return send(res, 200, await nextCategorizationCard(exclude));
     }
     return send(res, 400, { error: "mode måste vara 'categorization' eller 'comparison'" });

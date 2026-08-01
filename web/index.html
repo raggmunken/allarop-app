@@ -2057,13 +2057,17 @@ function enterAdminPage(){
 }
 // ---- Swipe-granskning (egen sida /swipe): kategorisering + prisjämförelse-matchning ----
 let swipeMode="categorization";
-async function loadSwipeCard(skip){
+// De SENAST besvarade categorization-korten (inte bara ett) - annars pingpongar
+// granskaren oändligt mellan två kort vid upprepade avslag, se server.ts:/swipe/next.
+let recentlyDecided=[];
+async function loadSwipeCard(){
   const el=document.getElementById("swipeCard");
   el.innerHTML=`<p>Laddar…</p>`;
   el.dataset.house="";el.dataset.externalId="";
   try{
-    // skip=hus/id: kortet som just besvarades - ett avvisat kort sorterar först igen.
-    const q=skip?`&skip=${encodeURIComponent(skip.house)}/${encodeURIComponent(skip.externalId)}`:"";
+    const q=swipeMode==="categorization"&&recentlyDecided.length
+      ?`&skip=${recentlyDecided.map(s=>`${encodeURIComponent(s.house)}/${encodeURIComponent(s.externalId)}`).join(",")}`
+      :"";
     const card=await fetch(`${API}/swipe/next?mode=${swipeMode}${q}`,{cache:"no-store"}).then(r=>r.json());
     if(!card){el.innerHTML=`<p>Inget att granska just nu.</p>`;el.dataset.house="";el.dataset.externalId="";return;}
     el.dataset.house=card.house;
@@ -2106,7 +2110,8 @@ async function decideSwipe(decision){
     el.dataset.house=skip.house;el.dataset.externalId=skip.externalId; // samma kort kvar → gå att svepa om
     return;
   }
-  loadSwipeCard(swipeMode==="categorization"?skip:undefined);
+  if(swipeMode==="categorization")recentlyDecided=[...recentlyDecided,skip].slice(-8);
+  loadSwipeCard();
 }
 function enterSwipePage(){
   document.title="Granska - Allarop";
