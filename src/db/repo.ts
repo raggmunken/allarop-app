@@ -1651,23 +1651,53 @@ export interface SwipeComparisonCard {
 /** Nästa jämförelsepar UTAN facit ännu (varken AI eller människa) - hämtar
  * ur den AI-driven prisjämförelsens senaste kandidatpar (est_at nyligen satt). */
 export async function nextComparisonCard(): Promise<SwipeComparisonCard | null> {
-  const { rows } = await pool.query<{
+  // NÖDBROMS (2026-08-01 incident, se not vid frågan nedan): även efter LATERAL-fixet kan
+  // frågan bli dyr när MÅNGA aktiva objekt saknar en matchande såld jämförelse (måste prövas
+  // en efter en tills en träff hittas). Egen anslutning med hård statement_timeout - en trög
+  // sökning ger ETT tomt swipe-kort (hellre inget än en hängande sida/pinnad db-CPU), stör
+  // aldrig resten av sajten. Kortlivad koppling avslutas (ej pool.release) - ingen risk att
+  // en kvarglömd session-timeout läcker till en annan konsument av den delade poolen.
+  const client = await pool.connect();
+  let rows: {
     house: string; external_id: string; title: string; image: string | null; image_emb: Buffer | null;
     cmp_house: string; cmp_external_id: string; cmp_title: string; cmp_image: string | null;
     cmp_image_emb: Buffer | null; cmp_price: number | null;
-  }>(
+  }[];
+  try {
+    await client.query(`SET statement_timeout = '4000'`);
+    const res = await client.query<{
+      house: string; external_id: string; title: string; image: string | null; image_emb: Buffer | null;
+      cmp_house: string; cmp_external_id: string; cmp_title: string; cmp_image: string | null;
+      cmp_image_emb: Buffer | null; cmp_price: number | null;
+    }>(
+    // PERF (2026-08-01 incident): "JOIN price_history ph ON ph.item_title % i.title" är en
+    // korstabell-join på TVÅ kolumner - pg_trgm:s GIN-index kan INTE stödja det direkt (bara
+    // "kolumn % konstant"), så planeraren föll tillbaka på Seq Scan + Nested Loop över HELA
+    // price_history (miljontals rader) x items (tiotusentals) → kostnad i miljardklassen,
+    // pinnade db-CPU:n på ~96 % och svalt ut resten av sajten. Fix: LATERAL - i.title blir då
+    // en KORRELERAD parameter per items-rad (samma form som priceStats() redan använder
+    // framgångsrikt), så GIN-indexet används per items-rad istället för en blind korsjoin.
     // Samma grundvillkor som priceStats: bara SÅLDA rader med riktigt slutpris och
-    // similarity >= 0.45. Bilderna hämtas via JOIN LATERAL (inte SELECT-subquery) så
-    // att avsaknad av bild FILTRERAR BORT paret - AI-verifieringen tittar ändå bara på
-    // par där båda sidor har bild, så bildlösa par är inte granskningsbara. Embeddingen
-    // (om beräknad - bakgrundspass, kan ligga efter) hämtas med för bildlikhets-badgen,
-    // men gatar INTE bort paret - null → badgen döljs bara, kön ordnas inte om.
+    // similarity >= 0.45, redan avgjorda par uteslutna. Bilderna hämtas via JOIN LATERAL
+    // (inte SELECT-subquery) så att avsaknad av bild FILTRERAR BORT paret - AI-verifieringen
+    // tittar ändå bara på par där båda sidor har bild. Embeddingen (om beräknad - bakgrunds-
+    // pass, kan ligga efter) hämtas med för bildlikhets-badgen, gatar INTE bort paret.
     `SELECT i.house, i.external_id, i.title, im.url AS image, im.embedding AS image_emb,
             ph.house AS cmp_house, ph.item_external_id AS cmp_external_id, ph.item_title AS cmp_title,
             cim.url AS cmp_image, cim.embedding AS cmp_image_emb,
             COALESCE(ph.final_total, ph.final_bid) AS cmp_price
      FROM items i
-     JOIN price_history ph ON ph.item_title % i.title  -- trigram-kandidat, samma bas som prisjämförelsen
+     JOIN LATERAL (
+       SELECT ph2.house, ph2.item_external_id, ph2.item_title, ph2.final_total, ph2.final_bid
+       FROM price_history ph2
+       WHERE ph2.item_title % i.title AND ph2.sold AND ph2.final_bid > 0
+         AND similarity(ph2.item_title, i.title) >= 0.45
+         AND NOT EXISTS (SELECT 1 FROM match_verdicts v
+                          WHERE v.house=i.house AND v.item_external_id=i.external_id
+                            AND v.cmp_house=ph2.house AND v.cmp_external_id=ph2.item_external_id)
+       ORDER BY similarity(ph2.item_title, i.title) DESC
+       LIMIT 1
+     ) ph ON true
      JOIN LATERAL (SELECT m.url, m.embedding FROM media m WHERE m.house=i.house AND m.owner_type='item'
                      AND m.owner_external_id=i.external_id AND m.kind='image'
                    ORDER BY m.sort NULLS LAST LIMIT 1) im ON true
@@ -1675,13 +1705,16 @@ export async function nextComparisonCard(): Promise<SwipeComparisonCard | null> 
                      AND m.owner_external_id=ph.item_external_id AND m.kind='image'
                    ORDER BY m.sort NULLS LAST LIMIT 1) cim ON true
      WHERE i.status='active' AND i.est_count >= 1
-       AND ph.sold AND ph.final_bid > 0 AND similarity(ph.item_title, i.title) >= 0.45
-       AND NOT EXISTS (SELECT 1 FROM match_verdicts v
-                        WHERE v.house=i.house AND v.item_external_id=i.external_id
-                          AND v.cmp_house=ph.house AND v.cmp_external_id=ph.item_external_id)
      ORDER BY i.ends_at ASC NULLS LAST
      LIMIT 1`,
-  );
+    );
+    rows = res.rows;
+  } catch (e) {
+    if ((e as { code?: string }).code === "57014") { rows = []; } // statement_timeout - inget kort denna gång
+    else throw e;
+  } finally {
+    client.release(true); // true = förstör anslutningen (bär SET statement_timeout) - läcker aldrig till poolen
+  }
   const r = rows[0];
   if (!r) return null;
   const vecA = decodeVec(r.image_emb);
